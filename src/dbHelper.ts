@@ -86,16 +86,7 @@ export async function getPhotosFromDB(): Promise<Photo[]> {
     });
     
     if (photos.length === 0) {
-      // If collection is completely empty, return the predefined static set
-      // to keep the museum-grade appearance hydrated, but write to Firestore in background
-      // to initialize it!
-      DEFAULT_PHOTOS.forEach(async (photo, index) => {
-        try {
-          await addDoc(collection(db, "photos"), { ...photo, position: index });
-        } catch (e) {
-          console.error("Error auto-seeding defaults", e);
-        }
-      });
+      // DB is empty — return static defaults without writing (admin uploads via console)
       return DEFAULT_PHOTOS.map((p, index) => ({ ...p, position: index }));
     }
 
@@ -123,13 +114,7 @@ export async function getPostsFromDB(): Promise<Post[]> {
     });
 
     if (posts.length === 0) {
-      DEFAULT_POSTS.forEach(async (post) => {
-        try {
-          await addDoc(collection(db, "posts"), post);
-        } catch (e) {
-          console.error("Error auto-seeding default posts", e);
-        }
-      });
+      // DB is empty — return static defaults without writing (admin publishes via console)
       return DEFAULT_POSTS;
     }
     return posts;

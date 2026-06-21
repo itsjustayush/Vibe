@@ -17,11 +17,10 @@ service cloud.firestore {
     }
 
     // ── Insights / Analytics ─────────────────────────────────────────────
-    // Anyone can write (page-view counters fire for all visitors).
-    // Only authenticated admin can read analytics.
+    // Public read + write: view counters increment for all visitors,
+    // and the admin dashboard reads them without needing special auth.
     match /insights/{insightId} {
-      allow read: if request.auth != null;
-      allow write: if true;
+      allow read, write: if true;
     }
 
     // ── Everything else ───────────────────────────────────────────────────
