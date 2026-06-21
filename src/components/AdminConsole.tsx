@@ -1,10 +1,14 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Photo, Post, AdminStats } from "../types";
-import { addPhotoToDB, addPostToDB, deletePhotoFromDB, deletePostFromDB, updatePhotoInDB, updatePostInDB, AppInsights, savePhotoOrderInDB } from "../dbHelper";
+import {
+  addPhotoToDB, addPostToDB, deletePhotoFromDB, deletePostFromDB,
+  updatePhotoInDB, updatePostInDB, AppInsights, savePhotoOrderInDB
+} from "../dbHelper";
 import SpiralLoader from "./SpiralLoader";
 import { compressImage, formatBytes } from "../utils/compressor";
 import ImageEditor from "./ImageEditor";
 import AyuVibeeLogo from "./AyuVibeeLogo";
+import { auth } from "../firebase";
 
 interface AdminConsoleProps {
   photos: Photo[];
@@ -14,2047 +18,1418 @@ interface AdminConsoleProps {
   onLogout: () => void;
 }
 
+type Tab = "overview" | "photos" | "blogs" | "video" | "settings";
+type Toast = { id: number; type: "success" | "error" | "info"; message: string };
+
 export default function AdminConsole({ photos, posts, insights, onRefreshData, onLogout }: AdminConsoleProps) {
-  const [activeTab, setActiveTab] = useState<"overview" | "library" | "narratives" | "video" | "settings">("overview");
-  
-  // Image Editor integration states
-  const [activeEditorImage, setActiveEditorImage] = useState<string | null>(null);
-  const [activeEditorSource, setActiveEditorSource] = useState<"new" | "edit" | null>(null);
-  
-  // Dynamic metrics calculated from live database data
-  const totalAssets = photos.length + posts.length + 1200; // 1200 predefined original masterpieces
-  const retinalEncounters = insights ? insights.retinalEncounters : 45182;
-  
-  // Calculations for real DB footprint storage
-  const totalUploadedBytes = photos.reduce((acc, p) => {
-    if (p.imageUrl?.startsWith("data:")) {
-      return acc + (p.imageUrl.length * 0.75);
-    }
-    return acc + 124000; // avg size in bytes
-  }, 0) + posts.reduce((acc, pos) => acc + (pos.content?.length || 0), 0);
+  const [activeTab, setActiveTab] = useState<Tab>("overview");
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  const toastId = useRef(0);
 
-  const stats: AdminStats = {
-    totalAssets,
-    narrativeReach: retinalEncounters.toLocaleString(),
-    storageUsed: Math.max(1, Math.min(100, Math.round((totalUploadedBytes / (10 * 1024 * 1024)) * 100))) // based on typical user sandbox limits (10MB)
-  };
-
-  // Live clock
+  // ── Clock ──────────────────────────────────────────────────────────────────
   const [currentTime, setCurrentTime] = useState("");
   useEffect(() => {
-    const updateTime = () => {
-      const now = new Date();
-      setCurrentTime(now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true }) + " / IST");
-    }
-    updateTime();
-    const interval = setInterval(updateTime, 1000);
-    return () => clearInterval(interval);
+    const update = () => setCurrentTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }) + " IST");
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
   }, []);
 
-  // Form states - Photos
+  // ── Toasts ─────────────────────────────────────────────────────────────────
+  const toast = useCallback((type: Toast["type"], message: string) => {
+    const id = ++toastId.current;
+    setToasts(prev => [...prev, { id, type, message }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000);
+  }, []);
+
+  // ── Image Editor ───────────────────────────────────────────────────────────
+  const [editorImage, setEditorImage] = useState<string | null>(null);
+  const [editorSource, setEditorSource] = useState<"new" | "edit" | null>(null);
+
+  // ── Photo Upload Form ──────────────────────────────────────────────────────
   const [photoTitle, setPhotoTitle] = useState("");
   const [photoCategory, setPhotoCategory] = useState("Architecture");
   const [photoLocation, setPhotoLocation] = useState("");
   const [photoCaption, setPhotoCaption] = useState("");
-  const [photoImageSource, setPhotoImageSource] = useState<"file" | "url">("url");
-  const [photoUrl, setPhotoUrl] = useState("");
-  const [photoBase64, setPhotoBase64] = useState("");
-  const [photoMime, setPhotoMime] = useState("image/jpeg");
-  const [photoUrlsList, setPhotoUrlsList] = useState<string[]>([]);
-  const [newImageInputUrl, setNewImageInputUrl] = useState("");
   const [photoTags, setPhotoTags] = useState("");
-  
-  // Form states - Posts
+  const [photoUrlsList, setPhotoUrlsList] = useState<string[]>([]);
+  const [newUrlInput, setNewUrlInput] = useState("");
+  const [compressing, setCompressing] = useState(false);
+  const [compressionStats, setCompressionStats] = useState<{ orig: number; comp: number; ratio: number } | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const [isDraggingOver, setIsDraggingOver] = useState(false);
+  const [imageAnalyzing, setImageAnalyzing] = useState(false);
+  const dropRef = useRef<HTMLDivElement>(null);
+
+  // ── Library ────────────────────────────────────────────────────────────────
+  const [libraryView, setLibraryView] = useState<"grid" | "list">("grid");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  // Edit Photo form
+  const [editTitle, setEditTitle] = useState("");
+  const [editCategory, setEditCategory] = useState("Architecture");
+  const [editLocation, setEditLocation] = useState("");
+  const [editCaption, setEditCaption] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [editUrlsList, setEditUrlsList] = useState<string[]>([]);
+  const [editNewUrl, setEditNewUrl] = useState("");
+  const [editImageSource, setEditImageSource] = useState<"url" | "file">("url");
+  const [editBase64, setEditBase64] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editAnalyzing, setEditAnalyzing] = useState(false);
+
+  // ── Blogs ──────────────────────────────────────────────────────────────────
   const [postTitle, setPostTitle] = useState("");
   const [postCategory, setPostCategory] = useState("");
   const [postCover, setPostCover] = useState("");
   const [postContent, setPostContent] = useState("");
+  const [editingPostId, setEditingPostId] = useState<string | null>(null);
+  const [publishingPost, setPublishingPost] = useState(false);
+  const [storyAnalyzing, setStoryAnalyzing] = useState(false);
+  const [blogTab, setBlogTab] = useState<"list" | "editor">("list");
 
-  // Form states - Video AI
+  // ── Video AI ───────────────────────────────────────────────────────────────
   const [videoBase64, setVideoBase64] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [videoMime, setVideoMime] = useState("video/mp4");
-  const [videoAnalysisResult, setVideoAnalysisResult] = useState("");
-
-  // Loading states
-  const [imageAnalyzing, setImageAnalyzing] = useState(false);
-  const [storyAnalyzing, setStoryAnalyzing] = useState(false);
   const [videoAnalyzing, setVideoAnalyzing] = useState(false);
-  const [publishing, setPublishing] = useState(false);
-  const [actionMessage, setActionMessage] = useState("");
+  const [videoResult, setVideoResult] = useState("");
 
-  // Editing States
-  const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
-  const [editPhotoTitle, setEditPhotoTitle] = useState("");
-  const [editPhotoCategory, setEditPhotoCategory] = useState("Architecture");
-  const [editPhotoLocation, setEditPhotoLocation] = useState("");
-  const [editPhotoCaption, setEditPhotoCaption] = useState("");
-  const [editPhotoImageSource, setEditPhotoImageSource] = useState<"file" | "url">("url");
-  const [editPhotoUrl, setEditPhotoUrl] = useState("");
-  const [editPhotoBase64, setEditPhotoBase64] = useState("");
-  const [editPhotoMime, setEditPhotoMime] = useState("image/jpeg");
-  const [editPhotoAnalyzing, setEditPhotoAnalyzing] = useState(false);
-  const [savingPhotoEdit, setSavingPhotoEdit] = useState(false);
-  const [editPhotoUrlsList, setEditPhotoUrlsList] = useState<string[]>([]);
-  const [newEditImageInputUrl, setNewEditImageInputUrl] = useState("");
-  const [editPhotoTags, setEditPhotoTags] = useState("");
-  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  // ── Stats ──────────────────────────────────────────────────────────────────
+  const totalBytes = photos.reduce((acc, p) => {
+    if (p.imageUrl?.startsWith("data:")) return acc + (p.imageUrl.length * 0.75);
+    return acc + 124000;
+  }, 0) + posts.reduce((acc, p) => acc + (p.content?.length || 0), 0);
+  const storagePct = Math.max(1, Math.min(100, Math.round((totalBytes / (10 * 1024 * 1024)) * 100)));
+  const userEmail = auth.currentUser?.email || "";
+  const userName = auth.currentUser?.displayName || "Admin";
+  const userPhoto = auth.currentUser?.photoURL || "";
 
-  const [compressing, setCompressing] = useState(false);
-  const [lastOriginalSize, setLastOriginalSize] = useState<number | null>(null);
-  const [lastCompressedSize, setLastCompressedSize] = useState<number | null>(null);
-  const [lastSaveRatio, setLastSaveRatio] = useState<number | null>(null);
-
-  const [editingPostId, setEditingPostId] = useState<string | null>(null);
-
-  // Handle local image upload file conversion to base64 with multi-image tracking & canvas-based compression
-  const handlePhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setPhotoMime("image/jpeg");
+  // ─────────────────────────────────────────────────────────────────────────
+  // IMAGE COMPRESSION HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+  const compressFiles = async (files: File[]): Promise<string[]> => {
     setCompressing(true);
-    setActionMessage("OPTIMIZING: Compressing local HD file for efficient cloud storage...");
-
     try {
-      const result = await compressImage(file, 1000, 1000, 0.75);
-      setPhotoBase64(result.base64);
-      setPhotoUrl(result.base64);
-      setPhotoUrlsList((prev) => {
-        if (prev.includes(result.base64)) return prev;
-        return [...prev, result.base64];
-      });
-      setLastOriginalSize(result.originalSize);
-      setLastCompressedSize(result.compressedSize);
-      setLastSaveRatio(result.ratio);
-      setActionMessage(`OPTIMIZED: Compressed asset. ${formatBytes(result.originalSize)} → ${formatBytes(result.compressedSize)} (${result.ratio}% space saved!)`);
-    } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Image compression phase failed.");
+      const results = await Promise.all(files.map(f => compressImage(f, 1000, 1000, 0.75)));
+      const totalOrig = results.reduce((a, r) => a + r.originalSize, 0);
+      const totalComp = results.reduce((a, r) => a + r.compressedSize, 0);
+      const ratio = Math.max(0, Math.round(((totalOrig - totalComp) / totalOrig) * 100));
+      setCompressionStats({ orig: totalOrig, comp: totalComp, ratio });
+      toast("info", `Compressed ${files.length} file${files.length > 1 ? "s" : ""}. Saved ${ratio}% (${formatBytes(totalOrig)} → ${formatBytes(totalComp)})`);
+      return results.map(r => r.base64);
     } finally {
       setCompressing(false);
     }
   };
 
-  const handlePhotoFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setCompressing(true);
-    setActionMessage("OPTIMIZING: Multi-image sequence compression engaged...");
-
-    try {
-      const results = await Promise.all(
-        Array.from(files).map((file) => compressImage(file, 1000, 1000, 0.75))
-      );
-      const base64s = results.map((r) => r.base64);
-      setPhotoUrlsList((prev) => [...prev, ...base64s]);
-      if (base64s[0]) {
-        setPhotoBase64(base64s[0]);
-        setPhotoUrl(base64s[0]);
-      }
-
-      const totalOrig = results.reduce((acc, r) => acc + r.originalSize, 0);
-      const totalComp = results.reduce((acc, r) => acc + r.compressedSize, 0);
-      const avgRatio = Math.round(((totalOrig - totalComp) / totalOrig) * 100);
-
-      setLastOriginalSize(totalOrig);
-      setLastCompressedSize(totalComp);
-      setLastSaveRatio(avgRatio);
-      setActionMessage(`OPTIMIZED: Managed sequence of ${files.length} parts. Saved: ${avgRatio}% total memory!`);
-    } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Multi-image sequencing compression broke.");
-    } finally {
-      setCompressing(false);
-    }
-  };
-
-  const handleAddImageUrl = () => {
-    if (newImageInputUrl.trim()) {
-      const trimmedUrl = newImageInputUrl.trim();
-      setPhotoUrlsList((prev) => [...prev, trimmedUrl]);
-      if (!photoUrl) {
-        setPhotoUrl(trimmedUrl);
-      }
-      setNewImageInputUrl("");
-    }
-  };
-
-  const handleRemoveImageUrl = (index: number) => {
-    setPhotoUrlsList((prev) => {
-      const updated = prev.filter((_, i) => i !== index);
-      if (updated.length > 0) {
-        setPhotoUrl(updated[0]);
-        setPhotoBase64(updated[0].startsWith("data:") ? updated[0] : "");
-      } else {
-        setPhotoUrl("");
-        setPhotoBase64("");
-      }
-      return updated;
-    });
-  };
-
-  const handleEditPhotoFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setEditPhotoMime("image/jpeg");
-    setCompressing(true);
-    setActionMessage("OPTIMIZING: Compressing frame for updated exhibit...");
-
-    try {
-      const result = await compressImage(file, 1000, 1000, 0.75);
-      setEditPhotoBase64(result.base64);
-      setEditPhotoUrl(result.base64);
-      setEditPhotoUrlsList((prev) => {
-        if (prev.includes(result.base64)) return prev;
-        return [...prev, result.base64];
-      });
-      setLastOriginalSize(result.originalSize);
-      setLastCompressedSize(result.compressedSize);
-      setLastSaveRatio(result.ratio);
-      setActionMessage(`OPTIMIZED: Done! ${formatBytes(result.originalSize)} → ${formatBytes(result.compressedSize)} (${result.ratio}% updated space saved!)`);
-    } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Edit compression failed.");
-    } finally {
-      setCompressing(false);
-    }
-  };
-
-  const handleEditPhotoFilesChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    setCompressing(true);
-    setActionMessage("OPTIMIZING: Editing set sequence compression engaged...");
-
-    try {
-      const results = await Promise.all(
-        Array.from(files).map((file) => compressImage(file, 1000, 1000, 0.75))
-      );
-      const base64s = results.map((r) => r.base64);
-      setEditPhotoUrlsList((prev) => [...prev, ...base64s]);
-      if (base64s[0]) {
-        setEditPhotoBase64(base64s[0]);
-        setEditPhotoUrl(base64s[0]);
-      }
-
-      const totalOrig = results.reduce((acc, r) => acc + r.originalSize, 0);
-      const totalComp = results.reduce((acc, r) => acc + r.compressedSize, 0);
-      const avgRatio = Math.round(((totalOrig - totalComp) / totalOrig) * 100);
-
-      setLastOriginalSize(totalOrig);
-      setLastCompressedSize(totalComp);
-      setLastSaveRatio(avgRatio);
-      setActionMessage(`OPTIMIZED: Compressed edit sequence of ${files.length} items. Total Saved: ${avgRatio}% space!`);
-    } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Edit multi-compression failed.");
-    } finally {
-      setCompressing(false);
-    }
-  };
-
-  const handleAddEditImageUrl = () => {
-    if (newEditImageInputUrl.trim()) {
-      const trimmedUrl = newEditImageInputUrl.trim();
-      setEditPhotoUrlsList((prev) => [...prev, trimmedUrl]);
-      if (!editPhotoUrl) {
-        setEditPhotoUrl(trimmedUrl);
-      }
-      setNewEditImageInputUrl("");
-    }
-  };
-
-  const handleRemoveEditImageUrl = (index: number) => {
-    setEditPhotoUrlsList((prev) => {
-      const updated = prev.filter((_, i) => i !== index);
-      if (updated.length > 0) {
-        setEditPhotoUrl(updated[0]);
-        setEditPhotoBase64(updated[0].startsWith("data:") ? updated[0] : "");
-      } else {
-        setEditPhotoUrl("");
-        setEditPhotoBase64("");
-      }
-      return updated;
-    });
-  };
-
-  const handleGeminiEditImageAnalysis = async () => {
-    const targetImage = editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64;
-    if (!targetImage) {
-      setActionMessage("ERROR: Please select a file or enter an image URL to analyze.");
-      return;
-    }
-
-    setEditPhotoAnalyzing(true);
-    try {
-      const res = await fetch("/api/analyze-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: targetImage,
-          mimeType: editPhotoMime
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      setEditPhotoCaption(data.analysis);
-    } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Failed to analyze image in edit view.");
-    } finally {
-      setEditPhotoAnalyzing(false);
-    }
-  };
-
-  const handleStartEditPhoto = (photo: Photo) => {
-    setEditingPhoto(photo);
-    setEditPhotoTitle(photo.title || "");
-    setEditPhotoCategory(photo.category || "Architecture");
-    setEditPhotoLocation(photo.location || "");
-    setEditPhotoCaption(photo.caption || "");
-    setEditPhotoTags(photo.tags ? photo.tags.join(", ") : "");
-    const isBase64 = photo.imageUrl?.startsWith("data:");
-    setEditPhotoImageSource(isBase64 ? "file" : "url");
-    if (isBase64) {
-      setEditPhotoBase64(photo.imageUrl || "");
-      setEditPhotoUrl(photo.imageUrl || "");
-    } else {
-      setEditPhotoUrl(photo.imageUrl || "");
-      setEditPhotoBase64("");
-    }
-    setEditPhotoUrlsList(photo.imageUrls && photo.imageUrls.length > 0 ? photo.imageUrls : [photo.imageUrl].filter(Boolean));
-    setActionMessage("");
-  };
-
-  const handleSavePhotoEdit = async (e: React.FormEvent) => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // DRAG & DROP
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleDrop = useCallback(async (e: React.DragEvent) => {
     e.preventDefault();
-    if (!editingPhoto) return;
+    setIsDraggingOver(false);
+    const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+    if (!files.length) return;
+    const base64s = await compressFiles(files);
+    setPhotoUrlsList(prev => [...prev, ...base64s]);
+  }, []);
 
-    const finalUrl = editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64;
-    
-    // Ensure all elements in the array are actual valid strings, filtering out hollow entries
-    const finalUrlsList = editPhotoUrlsList.filter(Boolean);
-    if (finalUrlsList.length === 0 && finalUrl) {
-      finalUrlsList.push(finalUrl);
-    }
-    
-    const mainUrl = finalUrlsList[0] || finalUrl;
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDraggingOver(true); };
+  const handleDragLeave = () => setIsDraggingOver(false);
 
-    if (!mainUrl || !editPhotoTitle) {
-      setActionMessage("ERROR: Missing title or image asset for update.");
-      return;
-    }
-
-    const compiledTags = editPhotoTags
-      ? editPhotoTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
-      : [];
-
-    setSavingPhotoEdit(true);
-    try {
-      if (editingPhoto.id) {
-        await updatePhotoInDB(editingPhoto.id, {
-          title: editPhotoTitle,
-          category: editPhotoCategory,
-          location: editPhotoLocation || "Kolkata, India",
-          caption: editPhotoCaption || "A curated perspective.",
-          imageUrl: mainUrl,
-          imageUrls: finalUrlsList,
-          analyzedDescription: editPhotoCaption.slice(0, 200),
-          tags: compiledTags
-        });
-        setActionMessage("SUCCESS: Photographic asset updated successfully.");
-      } else {
-        await addPhotoToDB({
-          title: editPhotoTitle,
-          category: editPhotoCategory,
-          location: editPhotoLocation || "Kolkata, India",
-          caption: editPhotoCaption || "A curated perspective.",
-          imageUrl: mainUrl,
-          imageUrls: finalUrlsList,
-          createdAt: Date.now(),
-          analyzedDescription: editPhotoCaption.slice(0, 200),
-          tags: compiledTags,
-          position: photos.length
-        });
-        setActionMessage("SUCCESS: Visual asset duplicated as standard cloud entry.");
-      }
-      setEditingPhoto(null);
-      setEditPhotoTags("");
-      onRefreshData();
-    } catch (error) {
-      console.error(error);
-      setActionMessage("ERROR: Failed to save photographic asset changes.");
-    } finally {
-      setSavingPhotoEdit(false);
-    }
+  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const base64s = await compressFiles(files);
+    setPhotoUrlsList(prev => [...prev, ...base64s]);
+    e.target.value = "";
   };
 
-  // Gemini Curator Image analysis
-  const handleGeminiImageAnalysis = async () => {
-    const targetImage = photoImageSource === "url" ? photoUrl : photoBase64;
-    if (!targetImage) {
-      setActionMessage("ERROR: Please select a file or enter an image URL to analyze.");
-      return;
-    }
-
-    setImageAnalyzing(true);
-    setActionMessage("");
-    try {
-      const res = await fetch("/api/analyze-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: targetImage,
-          mimeType: photoMime
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-
-      // Successfully processed! Let's fill the caption and suggest details
-      setPhotoCaption(data.analysis);
-      setActionMessage("SUCCESS: Gemini Pro analyzed the image beautifully.");
-    } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Failed to analyze image. Check terminal backend or Gemini API.");
-    } finally {
-      setImageAnalyzing(false);
-    }
-  };
-
-  // Publish Photo to Gallery
+  // ─────────────────────────────────────────────────────────────────────────
+  // PUBLISH PHOTO
+  // ─────────────────────────────────────────────────────────────────────────
   const handlePublishPhoto = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalUrl = photoImageSource === "url" ? photoUrl : photoBase64;
-    
-    const finalUrlsList = photoUrlsList.filter(Boolean);
-    if (finalUrlsList.length === 0 && finalUrl) {
-      finalUrlsList.push(finalUrl);
-    }
-    
-    const mainUrl = finalUrlsList[0] || finalUrl;
-    
-    if (!mainUrl || !photoTitle) {
-      setActionMessage("ERROR: Missing title or image asset.");
+    const list = photoUrlsList.filter(Boolean);
+    if (!list.length || !photoTitle.trim()) {
+      toast("error", "Provide at least one image and a title.");
       return;
     }
-
-    const compiledTags = photoTags
-      ? photoTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
-      : [];
-
     setPublishing(true);
-    setActionMessage("");
     try {
       await addPhotoToDB({
-        title: photoTitle,
+        title: photoTitle.trim(),
         category: photoCategory,
         location: photoLocation || "Kolkata, India",
         caption: photoCaption || "A curated perspective.",
-        imageUrl: mainUrl,
-        imageUrls: finalUrlsList,
+        imageUrl: list[0],
+        imageUrls: list,
         createdAt: Date.now(),
-        analyzedDescription: photoCaption.slice(0, 200), // snippet
-        tags: compiledTags,
-        position: photos.length
+        analyzedDescription: photoCaption.slice(0, 200),
+        tags: photoTags ? photoTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) : [],
+        position: photos.length,
       });
-
-      // Reset
-      setPhotoTitle("");
-      setPhotoLocation("");
-      setPhotoCaption("");
-      setPhotoUrl("");
-      setPhotoBase64("");
-      setPhotoUrlsList([]);
-      setPhotoTags("");
-      
-      setActionMessage("HIGHLIGHT: Asset published to live portfolio successfully.");
+      toast("success", `"${photoTitle}" published to gallery!`);
+      setPhotoTitle(""); setPhotoCategory("Architecture"); setPhotoLocation("");
+      setPhotoCaption(""); setPhotoTags(""); setPhotoUrlsList([]); setCompressionStats(null);
       onRefreshData();
     } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Failed to publish photographic asset.");
+      toast("error", "Publish failed: " + err.message);
     } finally {
       setPublishing(false);
     }
   };
 
-  // Analyze themes with Gemini
-  const handleGeminiStoryAnalysis = async () => {
-    if (!postContent) {
-      setActionMessage("ERROR: Please enter content inside of narrative editor first.");
-      return;
-    }
-    setStoryAnalyzing(true);
-    setActionMessage("");
+  // ─────────────────────────────────────────────────────────────────────────
+  // GEMINI ANALYZE
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleAnalyzeImage = async (imageData: string, mime: string, onResult: (text: string) => void, setLoading: (b: boolean) => void) => {
+    if (!imageData) { toast("error", "Load an image first."); return; }
+    setLoading(true);
     try {
-      // Simulate/call Gemini to analyze story core text
-      const res = await fetch("/api/analyze-video", {
+      const res = await fetch("/api/analyze-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          video: "N/A",
-          mimeType: "text/plain",
-          prompt: `Analyze the structural progression and aesthetic themes of the following story monograph. Suggest 3 key theme tags and provide a 2-sentence museum critique summary:\n\n${postContent}`
-        })
+        body: JSON.stringify({ image: imageData, mimeType: mime }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
-      // Prepend analysis
-      setPostContent((prev) => `${prev}\n\n---\n### Gemini Botanical Story Audit:\n${data.analysis}`);
-      setActionMessage("SUCCESS: Story themes audited successfully.");
+      onResult(data.analysis);
+      toast("success", "Gemini analyzed the image.");
     } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Theme audit failed.");
+      toast("error", "Analysis failed: " + err.message);
     } finally {
-      setStoryAnalyzing(false);
+      setLoading(false);
     }
   };
 
-  const handleStartEditPost = (post: Post) => {
+  // ─────────────────────────────────────────────────────────────────────────
+  // LIBRARY – SELECTION & BULK DELETE
+  // ─────────────────────────────────────────────────────────────────────────
+  const filteredPhotos = photos.filter(p =>
+    !searchQuery || p.title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.category?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    p.location?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const ids = filteredPhotos.filter(p => p.id).map(p => p.id!);
+    setSelectedIds(new Set(ids));
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size) return;
+    if (!confirm(`Delete ${selectedIds.size} photo${selectedIds.size > 1 ? "s" : ""}? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedIds).map(id => deletePhotoFromDB(id)));
+      toast("success", `Deleted ${selectedIds.size} photo${selectedIds.size > 1 ? "s" : ""}.`);
+      clearSelection();
+      onRefreshData();
+    } catch (err: any) {
+      toast("error", "Bulk delete failed: " + err.message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  const handleDeletePhoto = async (id: string) => {
+    if (!confirm("Delete this photo? This cannot be undone.")) return;
+    try {
+      await deletePhotoFromDB(id);
+      toast("success", "Photo deleted.");
+      onRefreshData();
+    } catch (err: any) {
+      toast("error", "Delete failed: " + err.message);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // EDIT PHOTO
+  // ─────────────────────────────────────────────────────────────────────────
+  const openEditPhoto = (photo: Photo) => {
+    setEditingPhoto(photo);
+    setEditTitle(photo.title || "");
+    setEditCategory(photo.category || "Architecture");
+    setEditLocation(photo.location || "");
+    setEditCaption(photo.caption || "");
+    setEditTags(photo.tags?.join(", ") || "");
+    const isBase64 = photo.imageUrl?.startsWith("data:");
+    setEditImageSource(isBase64 ? "file" : "url");
+    setEditBase64(isBase64 ? photo.imageUrl || "" : "");
+    setEditUrlsList(photo.imageUrls?.length ? photo.imageUrls : [photo.imageUrl].filter(Boolean) as string[]);
+    setEditNewUrl("");
+  };
+
+  const handleEditFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const results = await compressFiles([file]);
+    if (results[0]) {
+      setEditBase64(results[0]);
+      setEditImageSource("file");
+      setEditUrlsList(prev => {
+        const next = [...prev];
+        if (!next.includes(results[0])) next.unshift(results[0]);
+        return next;
+      });
+    }
+    e.target.value = "";
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingPhoto) return;
+    const list = editUrlsList.filter(Boolean);
+    if (!list.length || !editTitle.trim()) {
+      toast("error", "Title and at least one image are required.");
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      await updatePhotoInDB(editingPhoto.id!, {
+        title: editTitle.trim(),
+        category: editCategory,
+        location: editLocation || "Kolkata, India",
+        caption: editCaption || "A curated perspective.",
+        imageUrl: list[0],
+        imageUrls: list,
+        analyzedDescription: editCaption.slice(0, 200),
+        tags: editTags ? editTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) : [],
+      });
+      toast("success", `"${editTitle}" updated.`);
+      setEditingPhoto(null);
+      onRefreshData();
+    } catch (err: any) {
+      toast("error", "Save failed: " + err.message);
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  // ── Drag reorder in list view ──────────────────────────────────────────────
+  const handleRowDragStart = (e: React.DragEvent, i: number) => {
+    setDraggedIndex(i);
+    e.dataTransfer.effectAllowed = "move";
+  };
+  const handleRowDragOver = (e: React.DragEvent, i: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === i) return;
+  };
+  const handleRowDrop = async (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIdx) return;
+    const reordered = [...photos];
+    const [moved] = reordered.splice(draggedIndex, 1);
+    reordered.splice(targetIdx, 0, moved);
+    const orders = reordered.filter(p => p.id).map((p, i) => ({ id: p.id!, position: i }));
+    setDraggedIndex(null);
+    try {
+      await savePhotoOrderInDB(orders);
+      toast("success", "Order saved.");
+      onRefreshData();
+    } catch (err: any) {
+      toast("error", "Failed to save order.");
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BLOG CRUD
+  // ─────────────────────────────────────────────────────────────────────────
+  const resetBlogForm = () => {
+    setPostTitle(""); setPostCategory(""); setPostCover(""); setPostContent("");
+    setEditingPostId(null);
+  };
+
+  const startEditPost = (post: Post) => {
     setEditingPostId(post.id || null);
     setPostTitle(post.title || "");
     setPostCategory(post.category || "");
     setPostCover(post.coverImage || "");
     setPostContent(post.content || "");
-    setActionMessage(`EDIT MODE ACTIVE: Modifying Metaphysical Monograph "${post.title || ""}"`);
+    setBlogTab("editor");
   };
 
-  const handleCancelEditPost = () => {
-    setEditingPostId(null);
-    setPostTitle("");
-    setPostCategory("");
-    setPostCover("");
-    setPostContent("");
-    setActionMessage("HIGHLIGHT: Narrative monograph editing canceled.");
+  const handleDeletePost = async (id: string) => {
+    if (!confirm("Delete this blog post?")) return;
+    try {
+      await deletePostFromDB(id);
+      toast("success", "Blog post deleted.");
+      onRefreshData();
+    } catch (err: any) {
+      toast("error", "Delete failed: " + err.message);
+    }
   };
 
-  // Publish narrative article or update existing monograph
   const handlePublishPost = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!postTitle || !postContent) {
-      setActionMessage("ERROR: Monograph missing title or writing body.");
+    if (!postTitle.trim() || !postContent.trim()) {
+      toast("error", "Title and content are required.");
       return;
     }
-
-    setPublishing(true);
-    setActionMessage("");
+    setPublishingPost(true);
     try {
       if (editingPostId) {
         await updatePostInDB(editingPostId, {
-          title: postTitle,
-          content: postContent,
-          category: postCategory || "Urban Monographs Vol. 5",
+          title: postTitle.trim(), content: postContent,
+          category: postCategory || "Urban Monographs",
           coverImage: postCover || "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800"
         });
-        setActionMessage("SUCCESS: Narrative monograph updated successfully.");
+        toast("success", `"${postTitle}" updated.`);
         setEditingPostId(null);
       } else {
         await addPostToDB({
-          title: postTitle,
-          content: postContent,
-          category: postCategory || "Urban Monographs Vol. 5",
+          title: postTitle.trim(), content: postContent,
+          category: postCategory || "Urban Monographs",
           coverImage: postCover || "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800",
           createdAt: Date.now(),
-          analyzedThemes: ["Structural Analysis", "Editorial", "Geometry"]
+          analyzedThemes: ["Editorial", "Geometry", "Structural Analysis"],
         });
-        setActionMessage("HIGHLIGHT: Narrative published to journal successfully.");
+        toast("success", `"${postTitle}" published!`);
       }
-
-      setPostTitle("");
-      setPostCategory("");
-      setPostCover("");
-      setPostContent("");
-
+      resetBlogForm();
+      setBlogTab("list");
       onRefreshData();
     } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Failed to save monograph.");
+      toast("error", "Publish failed: " + err.message);
     } finally {
-      setPublishing(false);
+      setPublishingPost(false);
     }
   };
 
-  // Local video reader base64conversion
-  const handleVideoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setVideoMime(file.type);
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setVideoBase64(reader.result as string);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  // Gemini Video analysis execution
-  const handleGeminiVideoAnalysis = async () => {
-    if (!videoBase64 && !videoUrl) {
-      setActionMessage("ERROR: Provide a local video file or select a preset URL.");
-      return;
-    }
-
-    const payload = videoBase64 || videoUrl;
-    setVideoAnalyzing(true);
-    setVideoAnalysisResult("");
+  const handleStoryAnalysis = async () => {
+    if (!postContent.trim()) { toast("error", "Write some content first."); return; }
+    setStoryAnalyzing(true);
     try {
       const res = await fetch("/api/analyze-video", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          video: payload,
-          mimeType: videoMime,
-          prompt: "You are an elite director and camera operator. Audit this scene. Describe: 1) Frame timing patterns & tracking paces, 2) Color grading tones & temperature, 3) Symbolic depth of movement. Keep it museum-level precise."
-        })
+          video: "N/A", mimeType: "text/plain",
+          prompt: `Analyze this story and suggest 3 key theme tags and a 2-sentence curator summary:\n\n${postContent}`
+        }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-
-      setVideoAnalysisResult(data.analysis);
-      setActionMessage("SUCCESS: Video audited successfully by Gemini.");
+      setPostContent(prev => prev + `\n\n---\n**Gemini Themes Audit:**\n${data.analysis}`);
+      toast("success", "Themes analyzed and appended.");
     } catch (err: any) {
-      console.error(err);
-      setActionMessage("ERROR: Video processing failed on Gemini server payload.");
+      toast("error", "Analysis failed: " + err.message);
+    } finally {
+      setStoryAnalyzing(false);
+    }
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // VIDEO AI
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleVideoFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setVideoMime(file.type);
+    const reader = new FileReader();
+    reader.onloadend = () => setVideoBase64(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleVideoAnalyze = async () => {
+    if (!videoBase64 && !videoUrl) { toast("error", "Load a video first."); return; }
+    setVideoAnalyzing(true); setVideoResult("");
+    try {
+      const res = await fetch("/api/analyze-video", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          video: videoBase64 || videoUrl, mimeType: videoMime,
+          prompt: "Audit this video cinematically: 1) Frame timing & camera tracking, 2) Color grading & temperature, 3) Symbolic depth. Museum-level precision."
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setVideoResult(data.analysis);
+      toast("success", "Video analyzed.");
+    } catch (err: any) {
+      toast("error", "Analysis failed: " + err.message);
     } finally {
       setVideoAnalyzing(false);
     }
   };
 
-  // Deletion logic
-  const handleDeletePhoto = async (id: string) => {
-    if (!confirm("Are you sure you want to retire this photograph from public exhibit?")) return;
-    try {
-      await deletePhotoFromDB(id);
-      setActionMessage("HIGHLIGHT: Photo deleted successfully.");
-      onRefreshData();
-    } catch (e) {
-      setActionMessage("ERROR: Failed to delete Photo.");
-    }
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER HELPERS
+  // ─────────────────────────────────────────────────────────────────────────
+  const previewImage = photoUrlsList[0] || "";
 
-  const handleDeletePost = async (id: string) => {
-    if (!confirm("Are you sure you want to retire this narrative monograph?")) return;
-    try {
-      await deletePostFromDB(id);
-      setActionMessage("HIGHLIGHT: Story retired successfully.");
-      onRefreshData();
-    } catch (e) {
-      setActionMessage("ERROR: Failed to delete Story.");
-    }
-  };
+  const tabConfig: { id: Tab; label: string; icon: string; badge?: number }[] = [
+    { id: "overview", label: "Dashboard", icon: "dashboard" },
+    { id: "photos", label: "Photos", icon: "photo_library", badge: photos.length },
+    { id: "blogs", label: "Blogs", icon: "article", badge: posts.length },
+    { id: "video", label: "Video AI", icon: "movie_filter" },
+    { id: "settings", label: "Settings", icon: "settings" },
+  ];
 
-  // Rearranging photo records globally using position fields
-  const handleMovePhotoUp = async (index: number) => {
-    if (index === 0) return;
-    const reorderedPhotos = [...photos];
-    const [movedItem] = reorderedPhotos.splice(index, 1);
-    reorderedPhotos.splice(index - 1, 0, movedItem);
-
-    const photoOrders = reorderedPhotos.map((photo, i) => {
-      if (!photo.id) {
-        throw new Error("Missing document ID on photo");
-      }
-      return {
-        id: photo.id,
-        position: i
-      };
-    });
-
-    try {
-      setActionMessage("HIGHLIGHT: Shifting element sequence...");
-      await savePhotoOrderInDB(photoOrders);
-      setActionMessage("SUCCESS: Element shifted higher.");
-      onRefreshData();
-    } catch (error) {
-      console.error(error);
-      setActionMessage("ERROR: Failed to save position order.");
-    }
-  };
-
-  const handleMovePhotoDown = async (index: number) => {
-    if (index === photos.length - 1) return;
-    const reorderedPhotos = [...photos];
-    const [movedItem] = reorderedPhotos.splice(index, 1);
-    reorderedPhotos.splice(index + 1, 0, movedItem);
-
-    const photoOrders = reorderedPhotos.map((photo, i) => {
-      if (!photo.id) {
-        throw new Error("Missing document ID on photo");
-      }
-      return {
-        id: photo.id,
-        position: i
-      };
-    });
-
-    try {
-      setActionMessage("HIGHLIGHT: Shifting element sequence...");
-      await savePhotoOrderInDB(photoOrders);
-      setActionMessage("SUCCESS: Element shifted lower.");
-      onRefreshData();
-    } catch (error) {
-      console.error(error);
-      setActionMessage("ERROR: Failed to save position order.");
-    }
-  };
-
-  // HTML5 Native Drag & Drop Handlers
-  const handleDragStart = (e: React.DragEvent, index: number) => {
-    setDraggedIndex(index);
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", index.toString());
-  };
-
-  const handleDragOver = (e: React.DragEvent, index: number) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-  };
-
-  const handleDragEnd = () => {
-    setDraggedIndex(null);
-  };
-
-  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
-    e.preventDefault();
-    const draggedIdxStr = e.dataTransfer.getData("text/plain");
-    const parsedDraggedIndex = draggedIdxStr !== "" ? parseInt(draggedIdxStr, 10) : draggedIndex;
-
-    if (parsedDraggedIndex === null || parsedDraggedIndex === undefined || parsedDraggedIndex === targetIndex) {
-      return;
-    }
-
-    const reorderedPhotos = [...photos];
-    const [draggedItem] = reorderedPhotos.splice(parsedDraggedIndex, 1);
-    reorderedPhotos.splice(targetIndex, 0, draggedItem);
-
-    const photoOrders = reorderedPhotos.map((photo, i) => {
-      if (!photo.id) {
-        throw new Error("Missing document ID on photo");
-      }
-      return {
-        id: photo.id,
-        position: i
-      };
-    });
-
-    try {
-      setActionMessage("HIGHLIGHT: Transmitting new layout sequence to Firestore...");
-      await savePhotoOrderInDB(photoOrders);
-      setActionMessage("SUCCESS: Gallery position hierarchy updated flawlessly.");
-      onRefreshData();
-    } catch (err) {
-      console.error(err);
-      setActionMessage("ERROR: Failed to save the reordered layout to database.");
-    } finally {
-      setDraggedIndex(null);
-    }
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // IMAGE EDITOR CALLBACK
+  // ─────────────────────────────────────────────────────────────────────────
+  if (editorImage) {
+    return (
+      <ImageEditor
+        imageUrl={editorImage}
+        onSave={(newBase64: string) => {
+          if (editorSource === "new") {
+            setPhotoUrlsList(prev => {
+              if (prev.length === 0) return [newBase64];
+              const next = [...prev];
+              next[0] = newBase64;
+              return next;
+            });
+          } else if (editorSource === "edit") {
+            setEditBase64(newBase64);
+            setEditImageSource("file");
+            setEditUrlsList(prev => {
+              const next = [...prev];
+              if (next.length > 0) next[0] = newBase64;
+              else next.push(newBase64);
+              return next;
+            });
+          }
+          setEditorImage(null);
+          setEditorSource(null);
+        }}
+        onClose={() => { setEditorImage(null); setEditorSource(null); }}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-[#f7f4ed] grid grid-cols-1 md:grid-cols-12 border-t border-[#e5e1d8]">
-      
-      {/* Sidebar Control Column */}
-      <aside className="md:col-span-3 border-r border-[#e5e1d8] flex flex-col justify-between p-6 bg-[#fcfbfa]">
-        <div className="space-y-8">
-          
-          {/* Logo Brand Header */}
-          <div className="flex justify-center pb-6 border-b border-[#e5e1d8]">
-            <AyuVibeeLogo size="md" theme="dark" />
-          </div>
+    <div className="min-h-screen bg-[#f7f4ed] flex flex-col">
 
-          {/* Curator Profile badge */}
-          <div className="flex items-center space-x-3.5 pb-6 border-b border-[#e5e1d8]">
-            <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200" 
-              alt="Curator" 
-              className="w-12 h-12 grayscale contrast-120 object-cover"
-            />
-            <div>
-              <p className="font-mono text-[8px] tracking-[0.2em] text-[#8b8780] uppercase">CURATOR ACCESS</p>
-              <h3 className="font-serif text-base font-bold text-black leading-tight">Admin Engine</h3>
-              <p className="font-mono text-[9px] text-[#22c55e] uppercase tracking-widest mt-0.5">● SECURE_ACTIVE</p>
-            </div>
-          </div>
-
-          {/* Nav items */}
-          <nav className="flex flex-col space-y-2">
-            {[
-              { id: "overview", label: "Overview", icon: "dashboard" },
-              { id: "library", label: "Library Assets", icon: "photo_library" },
-              { id: "narratives", label: "Monograph Writer", icon: "edit_note" },
-              { id: "video", label: "Video AI Curator", icon: "video_camera_front" },
-              { id: "settings", label: "System Matrix", icon: "instant_mix" }
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`w-full py-2.5 px-3 flex items-center space-x-3 text-left font-sans text-xs tracking-widest uppercase cursor-pointer transition-colors ${
-                  activeTab === tab.id 
-                    ? "bg-black text-[#f7f4ed] font-bold" 
-                    : "text-[#5f5e59] hover:bg-black/5 hover:text-black"
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
-                <span>{tab.label}</span>
-              </button>
-            ))}
-          </nav>
-        </div>
-
-        {/* Exit admin bypass */}
-        <div className="pt-6 border-t border-[#e5e1d8] space-y-3">
-          <button 
-            onClick={onLogout}
-            className="w-full py-3 bg-red-100 text-red-700 hover:bg-red-200 font-mono text-[10px] tracking-widest uppercase transition-colors flex items-center justify-center gap-2"
+      {/* ── Toast Stack ───────────────────────────────────────────────────── */}
+      <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2 pointer-events-none">
+        {toasts.map(t => (
+          <div
+            key={t.id}
+            className={`pointer-events-auto px-4 py-3 border font-mono text-[10px] uppercase tracking-widest max-w-xs shadow-lg transition-all duration-300 ${
+              t.type === "success" ? "bg-emerald-50 border-emerald-300 text-emerald-800"
+              : t.type === "error" ? "bg-red-50 border-red-300 text-red-800"
+              : "bg-amber-50 border-amber-300 text-amber-800"
+            }`}
           >
-            <span className="material-symbols-outlined text-[16px]">logout</span>
-            <span>DISMISS CONSOLE</span>
+            <span className="mr-2">{t.type === "success" ? "✓" : t.type === "error" ? "✗" : "●"}</span>
+            {t.message}
+          </div>
+        ))}
+      </div>
+
+      {/* ── Top bar ───────────────────────────────────────────────────────── */}
+      <header className="bg-white border-b border-[#e5e1d8] px-6 py-3 flex items-center justify-between sticky top-0 z-40">
+        <div className="flex items-center gap-4">
+          <AyuVibeeLogo size="sm" theme="dark" />
+          <div className="hidden md:block h-5 w-px bg-[#e5e1d8]"></div>
+          <span className="hidden md:block font-mono text-[9px] tracking-widest text-[#8b8780] uppercase">Admin Console</span>
+        </div>
+        <div className="flex items-center gap-4">
+          <span className="hidden md:block font-mono text-[9px] text-[#8b8780]">{currentTime}</span>
+          {userPhoto && (
+            <img src={userPhoto} alt={userName} className="w-7 h-7 rounded-full border border-[#e5e1d8]" />
+          )}
+          <div className="hidden md:block text-right">
+            <p className="font-sans text-xs font-medium text-[#1a1a1a]">{userName}</p>
+            <p className="font-mono text-[8px] text-[#8b8780]">{userEmail}</p>
+          </div>
+          <button
+            onClick={onLogout}
+            className="px-3 py-1.5 border border-[#e5e1d8] hover:border-red-400 hover:text-red-600 font-mono text-[9px] uppercase tracking-wider text-[#8b8780] transition-colors cursor-pointer"
+          >
+            Logout
           </button>
         </div>
-      </aside>
+      </header>
 
-      {/* Main Canvas Area */}
-      <main className="md:col-span-9 p-6 md:p-10 flex flex-col justify-between">
-        <div className="space-y-8">
-          
-          {/* Canvas System Header */}
-          <header className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#e5e1d8] pb-6 gap-4 md:gap-0">
-            <div>
-              <span className="font-mono text-[9px] tracking-[0.22em] text-[#8b8780] uppercase">AYUSH BHATTACHARYA PORTFOLIO CONTROL</span>
-              <h2 className="font-serif text-3xl font-bold tracking-tight text-black mt-1">MASTER ACCESS — AESTHETE</h2>
-            </div>
-            <div className="text-right flex flex-col items-end">
-              <span className="font-mono text-[10px] bg-black text-[#f7f4ed] px-3 py-1 uppercase tracking-widest">{currentTime}</span>
-              <span className="font-mono text-[8px] text-[#8b8780] tracking-widest uppercase mt-1.5">LOCATION CORRIDOR: KOLKATA, IN</span>
-            </div>
-          </header>
+      <div className="flex flex-1 overflow-hidden">
+        {/* ── Sidebar ─────────────────────────────────────────────────────── */}
+        <aside className="hidden md:flex flex-col w-52 bg-white border-r border-[#e5e1d8] py-6 gap-1 flex-shrink-0">
+          {tabConfig.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-3 px-5 py-3 text-left transition-colors cursor-pointer group ${
+                activeTab === tab.id
+                  ? "bg-[#1a1a1a] text-white"
+                  : "text-[#5f5e59] hover:bg-[#f7f4ed] hover:text-[#1a1a1a]"
+              }`}
+            >
+              <span className={`material-symbols-outlined text-[18px] ${activeTab === tab.id ? "text-white" : "text-[#8b8780] group-hover:text-black"}`}>
+                {tab.icon}
+              </span>
+              <span className="font-mono text-[10px] tracking-wider uppercase flex-1">{tab.label}</span>
+              {tab.badge !== undefined && tab.badge > 0 && (
+                <span className={`font-mono text-[8px] px-1.5 py-0.5 ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-[#e5e1d8] text-[#5f5e59]"}`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
+        </aside>
 
-          {/* Inline Action Message notification */}
-          {actionMessage && (
-            <div className={`p-3.5 font-mono text-[10px] tracking-wider uppercase flex items-center justify-between border ${
-              actionMessage.startsWith("ERROR") 
-                ? "border-red-200 bg-red-50 text-red-700" 
-                : actionMessage.startsWith("SUCCESS")
-                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                : "border-black bg-black text-white"
-            }`}>
-              <span>{actionMessage}</span>
-              <button onClick={() => setActionMessage("")} className="text-inherit hover:opacity-75">
-                <span className="material-symbols-outlined text-sm block">close</span>
-              </button>
-            </div>
-          )}
+        {/* ── Mobile tab bar ──────────────────────────────────────────────── */}
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#e5e1d8] flex">
+          {tabConfig.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex flex-col items-center py-2.5 gap-0.5 cursor-pointer transition-colors ${
+                activeTab === tab.id ? "text-black" : "text-[#8b8780]"
+              }`}
+            >
+              <span className="material-symbols-outlined text-[18px]">{tab.icon}</span>
+              <span className="font-mono text-[7px] uppercase tracking-wide">{tab.label}</span>
+            </button>
+          ))}
+        </div>
 
-          {/* Tab 1: OVERVIEW */}
+        {/* ── Main ────────────────────────────────────────────────────────── */}
+        <main className="flex-1 overflow-y-auto p-6 md:p-8 pb-20 md:pb-8">
+
+          {/* ═══════════════════════════════════════════════════════════════
+              TAB: DASHBOARD
+          ═══════════════════════════════════════════════════════════════ */}
           {activeTab === "overview" && (
-            <div className="space-y-8">
-              
-              {/* Bento Stats Grid */}
-              <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="border border-[#e5e1d8] p-5 bg-[#faf9f6] flex flex-col justify-between h-32">
-                  <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase block">TOTAL LIVE ARCHIVES</span>
-                  <div className="flex items-baseline gap-2 mt-2">
-                    <span className="font-serif text-4xl font-extrabold text-[#1a1a1a]">{stats.totalAssets}</span>
-                    <span className="font-mono text-[10px] text-[#22c55e]">+14 THIS WEEK</span>
-                  </div>
-                  <div className="border-t border-[#e5e1d8]/50 pt-2 font-mono text-[8px] text-[#8b8780]">EXHIBITS SYNCHRONIZED</div>
-                </div>
-
-                <div className="border border-[#e5e1d8] p-5 bg-[#faf9f6] flex flex-col justify-between h-32">
-                  <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase block">NARRATIVE REACH</span>
-                  <div className="flex items-baseline gap-2 mt-2">
-                    <span className="font-serif text-4xl font-extrabold text-[#1a1a1a]">{stats.narrativeReach}</span>
-                    <span className="font-mono text-[9px] text-[#3b82f6]">98.2% ENGAGEMENT</span>
-                  </div>
-                  <div className="border-t border-[#e5e1d8]/50 pt-2 font-mono text-[8px] text-[#8b8780]">HIGH COGNITIVE VISITS</div>
-                </div>
-
-                <div className="border border-[#e5e1d8] p-5 bg-[#faf9f6]/90 flex flex-col justify-between h-32">
-                  <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase block">DATABASE OPTIMIZER ENGINE</span>
-                  {lastOriginalSize !== null && lastCompressedSize !== null ? (
-                    <div className="space-y-1 mt-1">
-                      <div className="flex justify-between font-mono text-[9px] text-amber-800 font-bold uppercase tracking-wider">
-                        <span>TUNING COMPLETED</span>
-                        <span>{lastSaveRatio}% SPACE SAVED</span>
-                      </div>
-                      <div className="font-serif text-[11px] leading-tight text-[#1a1a1a] mt-0.5">
-                        Compressed session asset: <span className="font-mono text-[9px] font-bold text-neutral-500 line-through">{formatBytes(lastOriginalSize)}</span> to <span className="font-mono text-[9px] font-bold text-emerald-700">{formatBytes(lastCompressedSize)}</span>.
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-2 mt-2">
-                      <div className="flex justify-between font-mono text-[10px] text-black">
-                        <span>OPTIMIZATION SHIELD ARMED</span>
-                        <span>100% SECURE</span>
-                      </div>
-                      <div className="w-full bg-[#e5e1d8] h-1.5 rounded-none overflow-hidden">
-                        <div className="bg-neutral-800 h-full" style={{ width: "100%" }}></div>
-                      </div>
-                    </div>
-                  )}
-                  <div className="border-t border-[#e5e1d8]/50 pt-2 font-mono text-[8px] text-[#8b8780] uppercase">
-                    {lastOriginalSize !== null ? "Telemetry synchronized with console" : "Retinal Compression matrix initialized"}
-                  </div>
-                </div>
-              </section>
-
-              {/* Dynamic Insights Deep-Dive Panel */}
-              <div className="border border-[#e5e1d8] bg-white p-5 md:p-6 space-y-4">
-                <div className="border-b border-[#e5e1d8] pb-3 flex justify-between items-center">
-                  <div>
-                    <h4 className="font-serif text-sm font-semibold tracking-tight text-white mix-blend-difference">Active Audience Telemetry Matrix</h4>
-                    <p className="font-mono text-[8px] text-[#8b8780] tracking-wider uppercase mt-0.5">Real-time synchronized insights retrieved from Firestore</p>
-                  </div>
-                  <div className="flex gap-1.5 items-center">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="font-mono text-[8px] text-emerald-600 uppercase tracking-widest font-semibold">FEED LIVE</span>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="p-3.5 bg-[#faf9f6]/60 border border-[#e5e1d8]/80 text-left space-y-1">
-                    <span className="font-mono text-[8px] tracking-wider text-[#8b8780] uppercase block">PORTFOLIO VIEWS</span>
-                    <span className="font-serif text-lg font-bold text-black">{(insights?.portfolioViews || 24510).toLocaleString()}</span>
-                    <span className="font-mono text-[7px] text-[#8b8780] uppercase block">Active gallery hits</span>
-                  </div>
-
-                  <div className="p-3.5 bg-[#faf9f6]/60 border border-[#e5e1d8]/80 text-left space-y-1">
-                    <span className="font-mono text-[8px] tracking-wider text-[#8b8780] uppercase block">MAGAZINE READS</span>
-                    <span className="font-serif text-lg font-bold text-black">{(insights?.storyViews || 15284).toLocaleString()}</span>
-                    <span className="font-mono text-[7px] text-[#8b8780] uppercase block">Editorial loops</span>
-                  </div>
-
-                  <div className="p-3.5 bg-[#faf9f6]/60 border border-[#e5e1d8]/80 text-left space-y-1">
-                    <span className="font-mono text-[8px] tracking-wider text-[#8b8780] uppercase block">BIOGRAPHY INTEREST</span>
-                    <span className="font-serif text-lg font-bold text-black">{(insights?.aboutViews || 5388).toLocaleString()}</span>
-                    <span className="font-mono text-[7px] text-[#8b8780] uppercase block">Philosophical interest</span>
-                  </div>
-
-                  <div className="p-3.5 bg-[#faf9f6]/60 border border-[#e5e1d8]/80 text-left space-y-1">
-                    <span className="font-mono text-[8px] tracking-wider text-[#8b8780] uppercase block">DATABASE FOOPRINT</span>
-                    <span className="font-serif text-lg font-bold text-black">{formatBytes(totalUploadedBytes)}</span>
-                    <span className="font-mono text-[7px] text-[#8b8780] uppercase block">Footprint optimized</span>
-                  </div>
-                </div>
-
-                <div className="p-3 py-2 bg-neutral-900 text-neutral-300 font-mono text-[8px] leading-relaxed uppercase flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border border-neutral-800">
-                  <span>🛰️ TELEMETRY SYSTEM ENGAGED: Cloud tracker listening on root gateway (SSL/HTTPS proxy active on port 3000)</span>
-                  <button onClick={onRefreshData} className="text-white hover:underline text-left md:text-right font-bold cursor-pointer uppercase tracking-wider text-[8px]">
-                    ⚡ RE-SYNC CORE
-                  </button>
-                </div>
-              </div>
-
-              {/* Sub-form and active list row */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* Visual Asset Uploader (Left Col) */}
-                <div className="lg:col-span-12 border border-[#e5e1d8] p-5 md:p-7 bg-white">
-                  <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-[#e5e1d8] mb-6 gap-3">
-                    <div>
-                      <h3 className="font-serif text-lg font-bold">Incorporate Photographic Asset</h3>
-                      <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-0.5">Hydrate details and publish to the live database</p>
-                    </div>
-                    {/* Gemini analyze assist trigger */}
-                    <button
-                      type="button"
-                      onClick={handleGeminiImageAnalysis}
-                      disabled={imageAnalyzing}
-                      className="px-4 py-2 bg-neutral-900 hover:bg-black text-[#f7f4ed] font-mono text-[9px] uppercase tracking-widest flex items-center gap-2 hover:scale-[1.02] duration-300 disabled:opacity-50 cursor-pointer"
-                    >
-                      {imageAnalyzing ? (
-                        <>
-                          <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                          <span>AI PROCESSING...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span className="material-symbols-outlined text-sm">insights</span>
-                          <span>INQUIRE CURATOR COGNITION (GEMINI PRO)</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  <form onSubmit={handlePublishPhoto} className="space-y-5">
-                    
-                    {/* Source Toggle */}
-                    <div className="grid grid-cols-2 gap-4 pb-2">
-                      <button
-                        type="button"
-                        onClick={() => setPhotoImageSource("url")}
-                        className={`py-2 text-center font-mono text-[9px] uppercase tracking-widest border transition-colors ${
-                          photoImageSource === "url" 
-                            ? "border-black bg-black text-[#f7f4ed] font-semibold" 
-                            : "border-[#e5e1d8] hover:border-black text-[#5f5e59]"
-                        }`}
-                      >
-                        EXTERNAL SECURE PRESET URL
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPhotoImageSource("file")}
-                        className={`py-2 text-center font-mono text-[9px] uppercase tracking-widest border transition-colors ${
-                          photoImageSource === "file" 
-                            ? "border-black bg-black text-[#f7f4ed] font-semibold" 
-                            : "border-[#e5e1d8] hover:border-black text-[#5f5e59]"
-                        }`}
-                      >
-                        LOCAL HD FILE DIRECT UPLOAD
-                      </button>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                      
-                      {/* Image Preview Panel */}
-                      <div className="border border-[#e5e1d8] p-3 bg-neutral-50 flex flex-col justify-between min-h-[220px]">
-                        <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mb-2 block animate-pulse">ASSET STREAM PREVIEW</span>
-                        <div className="flex-grow flex items-center justify-center bg-white border border-[#e5e1d8] overflow-hidden p-2 aspect-[16/10] max-h-[170px]">
-                          {(photoImageSource === "url" ? photoUrl : photoBase64) ? (
-                            <img 
-                              src={photoImageSource === "url" ? photoUrl : photoBase64} 
-                              alt="Asset Preview" 
-                              className="max-h-full object-contain"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <div className="text-center p-6">
-                              <span className="material-symbols-outlined text-3xl text-black/15">add_a_photo</span>
-                              <p className="font-mono text-[10px] text-[#8b8780] uppercase mt-2">NO ACTIVE STREAM CHANNELS</p>
-                            </div>
-                          )}
-                        </div>
-                        {(photoImageSource === "url" ? photoUrl : photoBase64) && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveEditorImage(photoImageSource === "url" ? photoUrl : photoBase64);
-                              setActiveEditorSource("new");
-                            }}
-                            className="mt-2 w-full py-1.5 border border-[#eab308] bg-[#eab308]/15 hover:bg-[#eab308] hover:text-black text-amber-950 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold"
-                          >
-                            <span className="material-symbols-outlined text-xs">tune</span>
-                            LAUNCH CROP / FLIP / ROTATE / COPYRIGHT
-                          </button>
-                        )}
-                      </div>
-
-                      {/* File select controls */}
-                      <div className="space-y-4">
-                        {photoImageSource === "url" ? (
-                          <div className="space-y-1">
-                            <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">PRESET PICTURE SECURE LINK</label>
-                            <input 
-                              type="text" 
-                              value={photoUrl}
-                              onChange={(e) => { setPhotoUrl(e.target.value); setPhotoBase64(""); }}
-                              placeholder="https://images.unsplash.com/photo-..."
-                              className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
-                            />
-                            <p className="font-mono text-[8px] text-[#8b8780] leading-relaxed uppercase mt-1">
-                              Paste an Unsplash image URL for instant visual loading.
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">SELECT IMAGE PORT FILE</label>
-                            <input 
-                              type="file"
-                              accept="image/*"
-                              onChange={handlePhotoFileChange}
-                              className="w-full text-xs font-mono file:mr-4 file:py-1.5 file:px-3 file:border file:border-black file:bg-black file:text-white file:text-[9px] file:tracking-widest file:uppercase hover:file:opacity-90 file:cursor-pointer p-1.5 border border-[#e5e1d8] bg-[#faf9f6]"
-                            />
-                            <p className="font-mono text-[8px] text-[#8b8780] leading-relaxed uppercase mt-1">
-                              Files are dynamically optimized and stored as compressed base64 streams inside Firestore.
-                            </p>
-                            {/* Dynamic Optimizer Stats panel */}
-                            {lastOriginalSize !== null && lastCompressedSize !== null && photoImageSource === "file" && (
-                              <div className="mt-2 bg-[#f4f2ea] border border-[#e5e1d8] p-2 flex flex-col gap-1.5">
-                                <div className="flex items-center justify-between font-mono text-[8px] tracking-wider uppercase font-semibold text-neutral-800">
-                                  <span>⚡ OPTIMIZER SAVED: {lastSaveRatio}% VALUE</span>
-                                  <span>{formatBytes(lastOriginalSize)} → {formatBytes(lastCompressedSize)}</span>
-                                </div>
-                                <div className="w-full bg-[#e5e1d8] h-1.5 rounded-none overflow-hidden">
-                                  <div className="bg-amber-600 h-full" style={{ width: `${lastSaveRatio || 0}%` }}></div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="space-y-1">
-                            <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">EXHIBIT TITLE</label>
-                            <input 
-                              type="text" 
-                              value={photoTitle}
-                              onChange={(e) => setPhotoTitle(e.target.value)}
-                              placeholder="e.g. Geometry in Banaras"
-                              required
-                              className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-serif text-sm"
-                            />
-                          </div>
-                          
-                          <div className="space-y-1">
-                            <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">CATEGORY PORT</label>
-                            <select 
-                              value={photoCategory}
-                              onChange={(e) => setPhotoCategory(e.target.value)}
-                              className="w-full px-3 py-2.5 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-[11px] uppercase tracking-wider"
-                            >
-                              <option value="Architecture">Architecture</option>
-                              <option value="Landscape">Landscape</option>
-                              <option value="Portrait">Portrait</option>
-                              <option value="Conceptual">Conceptual</option>
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">CAPTURE LOCATION</label>
-                          <input 
-                            type="text" 
-                            value={photoLocation}
-                            onChange={(e) => setPhotoLocation(e.target.value)}
-                            placeholder="e.g. Banaras Ghats, India"
-                            className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
-                          />
-                        </div>
-
-                        <div className="space-y-1">
-                          <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">TAGS / COLLECTIONS (COMMA-SEPARATED)</label>
-                          <input 
-                            type="text" 
-                            value={photoTags}
-                            onChange={(e) => setPhotoTags(e.target.value)}
-                            placeholder="film, vintage, architecture, banaras"
-                            className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-mono text-xs"
-                          />
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                    {/* MULTI-IMAGE CAROUSEL TRACK */}
-                    <div className="space-y-3 pt-3 border-t border-dashed border-[#e5e1d8]">
-                      <div className="flex justify-between items-center">
-                        <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">
-                          EXHIBIT CAROUSEL CHANNEL TRACK & ASSETS ({photoUrlsList.length} ITEMS)
-                        </label>
-                        <span className="font-mono text-[8px] text-[#8b8780] uppercase">FIRST ITEM IS THE MASTER COVER</span>
-                      </div>
-
-                      {photoUrlsList.length > 0 ? (
-                        <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin">
-                          {photoUrlsList.map((url, i) => (
-                            <div key={i} className="relative w-28 h-24 border border-[#e5e1d8] bg-white p-1 flex-shrink-0 group overflow-hidden">
-                              <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt={`Exhibit ${i + 1}`} />
-                              <div className="absolute top-1 left-1 bg-black text-[#f7f4ed] text-[8px] font-mono px-1 py-0.5 leading-none z-10 select-none">
-                                {i === 0 ? "COVER" : `#${i + 1}`}
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveImageUrl(i)}
-                                className="absolute -top-1 -right-1 bg-red-600 hover:bg-red-800 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs cursor-pointer shadow-md duration-200 z-10"
-                                title="Remove photo from stream"
-                              >
-                                ×
-                              </button>
-                              {/* Reordering / Arranging bar at the bottom */}
-                              <div className="absolute bottom-0 left-0 right-0 bg-black/85 text-white flex justify-between px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                                <button
-                                  type="button"
-                                  disabled={i === 0}
-                                  onClick={() => {
-                                    setPhotoUrlsList(prev => {
-                                      const next = [...prev];
-                                      const temp = next[i];
-                                      next[i] = next[i - 1];
-                                      next[i - 1] = temp;
-                                      return next;
-                                    });
-                                  }}
-                                  className="text-[10px] font-mono font-bold hover:text-amber-400 disabled:opacity-30 disabled:hover:text-white cursor-pointer px-1"
-                                  title="Move Left"
-                                >
-                                  ←
-                                </button>
-                                <span className="text-[7px] font-mono self-center uppercase tracking-widest text-[#a8a49c] select-none font-semibold">ARRANGE</span>
-                                <button
-                                  type="button"
-                                  disabled={i === photoUrlsList.length - 1}
-                                  onClick={() => {
-                                    setPhotoUrlsList(prev => {
-                                      const next = [...prev];
-                                      const temp = next[i];
-                                      next[i] = next[i + 1];
-                                      next[i + 1] = temp;
-                                      return next;
-                                    });
-                                  }}
-                                  className="text-[10px] font-mono font-bold hover:text-amber-400 disabled:opacity-30 disabled:hover:text-white cursor-pointer px-1"
-                                  title="Move Right"
-                                >
-                                  →
-                                </button>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="border border-dashed border-[#e5e1d8] py-4 text-center bg-neutral-50">
-                          <span className="font-mono text-[10px] text-[#8b8780] uppercase">No extra carousel assets appended. Drop some files below or click to publish as a single cover.</span>
-                        </div>
-                      )}
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                        {/* URL paste */}
-                        <div className="flex gap-2">
-                          <input 
-                            type="text"
-                            value={newImageInputUrl}
-                            onChange={(e) => setNewImageInputUrl(e.target.value)}
-                            placeholder="Paste external image link..."
-                            className="flex-grow px-3 py-1.5 border border-[#e5e1d8] bg-[#faf9f6]/80 text-[10px] focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleAddImageUrl}
-                            className="px-3 bg-black hover:bg-neutral-800 text-white text-[9px] uppercase font-mono tracking-wider transition-colors cursor-pointer"
-                          >
-                            Add URL
-                          </button>
-                        </div>
-
-                        {/* Bulk Multi-file input */}
-                        <div className="border border-[#e5e1d8] hover:border-black/50 transition-all p-1 bg-white flex items-center gap-2">
-                          <span className="material-symbols-outlined text-sm text-[#8b8780] pl-1">library_add</span>
-                          <span className="font-mono text-[8px] text-[#5f5e59] uppercase tracking-wider">BULK LOADER:</span>
-                          <input 
-                            type="file"
-                            multiple
-                            accept="image/*"
-                            onChange={handlePhotoFilesChange}
-                            className="flex-grow text-[8px] font-mono file:py-1 file:px-2 file:border-0 file:bg-neutral-100 file:text-[8px] file:uppercase file:tracking-widest file:hover:bg-neutral-200 cursor-pointer text-[#8b8780]"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">CRITIQUE / AMBIENT DIRECTIVES</label>
-                      <textarea 
-                        rows={3} 
-                        value={photoCaption}
-                        onChange={(e) => setPhotoCaption(e.target.value)}
-                        placeholder="Write dynamic description or let Gemini Pro analyze the image composition above..."
-                        className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={publishing}
-                      className="w-full py-3.5 bg-black text-[#f7f4ed] font-mono text-[10px] tracking-widest uppercase hover:opacity-95 disabled:opacity-50 cursor-pointer text-center"
-                    >
-                      {publishing ? "SYNCHRONIZING..." : "PUBLISH TO EXHIBITION COLLECTION"}
-                    </button>
-                    
-                  </form>
-                </div>
-
-              </div>
-
-            </div>
-          )}
-
-          {/* Tab 2: LIBRARY ASSETS LIST */}
-          {activeTab === "library" && (
-            <div className="space-y-8">
+            <div className="space-y-8 max-w-4xl">
               <div>
-                <h3 className="font-serif text-lg font-bold">Exhibit Inventories</h3>
-                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider">All photographic frames synchronized across Firestore</p>
+                <h1 className="font-serif text-2xl font-bold text-black">Good to see you, {userName.split(" ")[0]}.</h1>
+                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-1">Your curator dashboard — live as of {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p>
               </div>
 
-              <div className="border border-[#e5e1d8] bg-white overflow-hidden">
-                <table className="w-full text-left font-sans text-xs">
-                  <thead className="bg-[#faf9f6] border-b border-[#e5e1d8] font-mono text-[9px] text-[#8b8780] uppercase tracking-wider">
-                    <tr>
-                      <th className="p-4">Visual asset</th>
-                      <th className="p-4">Title & info</th>
-                      <th className="p-4">Category</th>
-                      <th className="p-4">Created Date</th>
-                      <th className="p-4 text-center">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#e5e1d8]">
-                    {photos.map((photo, index) => (
-                      <tr 
-                        key={photo.id || index} 
-                        draggable="true"
-                        onDragStart={(e) => handleDragStart(e, index)}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDragEnd={handleDragEnd}
-                        onDrop={(e) => handleDrop(e, index)}
-                        className={`transition-colors duration-150 cursor-grab active:cursor-grabbing select-none ${
-                          draggedIndex === index ? "bg-amber-200/40 opacity-70" : "hover:bg-neutral-50"
-                        }`}
-                      >
-                        <td className="p-4 flex items-center gap-3">
-                          <span className="material-symbols-outlined text-[#8b8780] text-sm select-none">drag_indicator</span>
-                          <img 
-                            src={photo.imageUrl} 
-                            alt={photo.title}
-                            className="w-16 h-11 object-cover border border-[#e5e1d8]"
-                            referrerPolicy="no-referrer"
-                          />
-                        </td>
-                        <td className="p-4">
-                          <p className="font-serif font-bold text-[#1a1a1a]">{photo.title}</p>
-                          <p className="font-mono text-[9px] text-[#8b8780]">{photo.location}</p>
-                        </td>
-                        <td className="p-4 font-mono text-[10px] uppercase text-[#5f5e59]">{photo.category}</td>
-                        <td className="p-4 font-mono text-[9px] text-[#8b8780]">
-                          {new Date(photo.createdAt).toLocaleDateString("en-US", { day: "numeric", month: "short", year: "numeric" })}
-                        </td>
-                        <td className="p-4 text-center">
-                          <div className="flex justify-center items-center gap-2">
-                            {/* Reordering buttons / Arranging */}
-                            <button
-                              onClick={() => handleMovePhotoUp(index)}
-                              disabled={index === 0}
-                              className="text-neutral-400 hover:text-black disabled:opacity-20 p-2 cursor-pointer transition-colors"
-                              title="Move up in corridor hierarchy"
-                            >
-                              <span className="material-symbols-outlined text-sm">arrow_upward</span>
-                            </button>
-                            <button
-                              onClick={() => handleMovePhotoDown(index)}
-                              disabled={index === photos.length - 1}
-                              className="text-neutral-400 hover:text-black disabled:opacity-20 p-2 cursor-pointer transition-colors"
-                              title="Move down in corridor hierarchy"
-                            >
-                              <span className="material-symbols-outlined text-sm">arrow_downward</span>
-                            </button>
+              {/* Stat cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { label: "Photos", value: photos.length, icon: "photo_library", color: "text-amber-600" },
+                  { label: "Blog Posts", value: posts.length, icon: "article", color: "text-blue-600" },
+                  { label: "Page Views", value: (insights?.retinalEncounters || 0).toLocaleString(), icon: "visibility", color: "text-emerald-600" },
+                  { label: "Storage", value: `${storagePct}%`, icon: "storage", color: storagePct > 80 ? "text-red-500" : "text-purple-600" },
+                ].map(s => (
+                  <div key={s.label} className="bg-white border border-[#e5e1d8] p-5">
+                    <div className="flex items-start justify-between">
+                      <span className={`material-symbols-outlined text-2xl ${s.color}`}>{s.icon}</span>
+                    </div>
+                    <div className="mt-3">
+                      <p className="font-serif text-2xl font-bold text-black">{s.value}</p>
+                      <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-0.5">{s.label}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-                            <button 
-                              onClick={() => handleStartEditPhoto(photo)}
-                              className="text-neutral-500 hover:text-black p-2 cursor-pointer transition-colors"
-                              title="Edit photographic asset metadata"
-                            >
-                              <span className="material-symbols-outlined text-sm">edit</span>
-                            </button>
-                            {photo.id ? (
-                              <button 
-                                onClick={() => handleDeletePhoto(photo.id!)}
-                                className="text-red-500 hover:text-red-700 p-2 cursor-pointer transition-colors"
-                                title="Retire visual asset"
-                              >
-                                <span className="material-symbols-outlined text-sm">delete</span>
-                              </button>
-                            ) : (
-                              <span className="font-mono text-[8px] text-[#8b8780] uppercase">Original</span>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
+              {/* Storage bar */}
+              <div className="bg-white border border-[#e5e1d8] p-5 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59]">Firestore Storage Usage</span>
+                  <span className="font-mono text-[10px] font-bold text-black">{formatBytes(totalBytes)} / 10 MB</span>
+                </div>
+                <div className="w-full bg-[#e5e1d8] h-2">
+                  <div
+                    className={`h-full transition-all duration-700 ${storagePct > 80 ? "bg-red-500" : storagePct > 60 ? "bg-amber-500" : "bg-emerald-500"}`}
+                    style={{ width: `${storagePct}%` }}
+                  />
+                </div>
+                <p className="font-mono text-[8px] text-[#8b8780] uppercase">
+                  Images are compressed with canvas-based JPEG optimization + automatic watermarking before storage.
+                </p>
+              </div>
+
+              {/* Analytics */}
+              {insights && (
+                <div className="bg-white border border-[#e5e1d8] p-5 space-y-4">
+                  <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59] border-b border-[#e5e1d8] pb-3">Analytics Breakdown</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                      { label: "Portfolio views", value: insights.portfolioViews },
+                      { label: "Story views", value: insights.storyViews },
+                      { label: "About views", value: insights.aboutViews },
+                      { label: "Admin views", value: insights.adminViews },
+                    ].map(m => (
+                      <div key={m.label}>
+                        <p className="font-serif text-lg font-bold text-black">{m.value.toLocaleString()}</p>
+                        <p className="font-mono text-[8px] text-[#8b8780] uppercase tracking-wider">{m.label}</p>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Quick actions */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[
+                  { label: "Upload Photos", desc: "Add new images to gallery", icon: "add_a_photo", tab: "photos" as Tab },
+                  { label: "Write a Blog", desc: "Create a new editorial post", icon: "edit_note", tab: "blogs" as Tab },
+                  { label: "Video Analysis", desc: "Analyze a video with Gemini", icon: "movie_filter", tab: "video" as Tab },
+                ].map(a => (
+                  <button
+                    key={a.label}
+                    onClick={() => { setActiveTab(a.tab); if (a.tab === "blogs") setBlogTab("editor"); }}
+                    className="bg-white border border-[#e5e1d8] p-5 text-left hover:border-black transition-all duration-150 group cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-2xl text-[#8b8780] group-hover:text-black transition-colors">{a.icon}</span>
+                    <p className="font-mono text-[11px] uppercase tracking-wider font-bold text-black mt-3">{a.label}</p>
+                    <p className="font-sans text-xs text-[#8b8780] mt-0.5">{a.desc}</p>
+                  </button>
+                ))}
               </div>
+
+              {/* Recent photos */}
+              {photos.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59]">Recent Photos</h3>
+                  <div className="grid grid-cols-3 md:grid-cols-6 gap-2">
+                    {photos.slice(0, 6).map((p, i) => (
+                      <div key={p.id || i} className="relative group aspect-square overflow-hidden border border-[#e5e1d8]">
+                        <img src={p.imageUrl} alt={p.title} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button onClick={() => openEditPhoto(p)} className="text-white cursor-pointer">
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
-          {/* Tab 3: PUBLISH JOURNAL MONOGRAPH */}
-          {activeTab === "narratives" && (
-            <div className="space-y-8">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-4 border-b border-[#e5e1d8] gap-4">
-                <div>
-                  <h3 className="font-serif text-lg font-bold">Write Story Narrative</h3>
-                  <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider">Structure deep theoretical journals and save them in the cloud</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGeminiStoryAnalysis}
-                  disabled={storyAnalyzing}
-                  className="px-4 py-2 bg-neutral-900 text-[#f7f4ed] hover:bg-black font-mono text-[9px] uppercase tracking-widest flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-                >
-                  {storyAnalyzing ? (
-                    <>
-                      <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                      <span>AUDITING STRUCTURE...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="material-symbols-outlined text-sm">history_edu</span>
-                      <span>AUDIT NARRATIVE THEMES (GEMINI AI)</span>
-                    </>
-                  )}
-                </button>
+          {/* ═══════════════════════════════════════════════════════════════
+              TAB: PHOTOS
+          ═══════════════════════════════════════════════════════════════ */}
+          {activeTab === "photos" && (
+            <div className="space-y-8 max-w-5xl">
+              {/* Sub-nav */}
+              <div className="flex items-center gap-1 border-b border-[#e5e1d8]">
+                {(["upload", "library"] as const).map(sub => (
+                  <button
+                    key={sub}
+                    onClick={() => { /* handled by internal state below */ }}
+                    className={`px-4 py-2.5 font-mono text-[9px] uppercase tracking-widest border-b-2 -mb-px transition-colors cursor-default`}
+                  >
+                    {sub === "upload" ? "Upload" : `Library (${photos.length})`}
+                  </button>
+                ))}
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* Writing inputs */}
-                <form onSubmit={handlePublishPost} className="lg:col-span-8 space-y-4">
-                  {editingPostId && (
-                    <div className="bg-[#faf9f6] border border-black/10 p-3.5 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="animate-pulse block w-2 h-2 rounded-full bg-amber-500"></span>
-                        <span className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase">Currently editing monograph draft</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleCancelEditPost}
-                        className="font-mono text-[9px] uppercase tracking-widest text-red-600 hover:text-red-800 underline cursor-pointer"
-                      >
-                        Cancel Edit
-                      </button>
+              {/* ── Upload Section ── */}
+              <section className="space-y-6">
+                <h2 className="font-serif text-xl font-bold text-black">Upload Photos</h2>
+
+                {/* Drag & drop zone */}
+                <div
+                  ref={dropRef}
+                  onDrop={handleDrop}
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  className={`border-2 border-dashed rounded-none transition-all duration-150 p-10 text-center cursor-pointer ${
+                    isDraggingOver
+                      ? "border-black bg-neutral-100 scale-[1.01]"
+                      : "border-[#d5d0c8] hover:border-black bg-white"
+                  }`}
+                  onClick={() => document.getElementById("bulkFileInput")?.click()}
+                >
+                  {compressing ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <SpiralLoader size={60} showText={false} />
+                      <p className="font-mono text-[10px] uppercase tracking-widest text-[#8b8780] animate-pulse">Compressing & Watermarking...</p>
+                    </div>
+                  ) : photoUrlsList.length > 0 ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="material-symbols-outlined text-3xl text-emerald-500">check_circle</span>
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-black font-bold">{photoUrlsList.length} image{photoUrlsList.length > 1 ? "s" : ""} ready</p>
+                      <p className="font-mono text-[9px] text-[#8b8780] uppercase">Drop more or click to add</p>
+                      {compressionStats && (
+                        <div className="mt-2 bg-emerald-50 border border-emerald-200 px-4 py-2 font-mono text-[9px] text-emerald-700 uppercase tracking-wider">
+                          ⚡ Saved {compressionStats.ratio}% — {formatBytes(compressionStats.orig)} → {formatBytes(compressionStats.comp)}
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center gap-3">
+                      <span className="material-symbols-outlined text-4xl text-[#c5c0b8]">cloud_upload</span>
+                      <p className="font-mono text-[11px] uppercase tracking-widest text-[#5f5e59] font-bold">
+                        {isDraggingOver ? "Release to upload" : "Drag & drop images here"}
+                      </p>
+                      <p className="font-mono text-[9px] text-[#8b8780] uppercase">or click to browse — supports single or bulk selection</p>
+                      <p className="font-mono text-[8px] text-[#8b8780] uppercase mt-1">Auto-compressed · Watermarked · Stored in Firestore</p>
                     </div>
                   )}
+                  <input id="bulkFileInput" type="file" multiple accept="image/*" className="hidden" onChange={handleFileInput} />
+                </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">MONOGRAPH TITLE</label>
-                      <input 
-                        type="text" 
-                        value={postTitle}
-                        onChange={(e) => setPostTitle(e.target.value)}
-                        placeholder="e.g. Modernist Solid Shapes"
-                        required
-                        className="w-full px-3 py-2 border border-[#e5e1d8] bg-white focus:outline-none focus:border-black font-serif text-base font-bold"
-                      />
+                {/* Image previews strip */}
+                {photoUrlsList.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[9px] text-[#5f5e59] uppercase tracking-wider">Preview ({photoUrlsList.length} images) — first = cover</span>
+                      <button onClick={() => { setPhotoUrlsList([]); setCompressionStats(null); }} className="font-mono text-[8px] text-red-500 hover:text-red-700 uppercase tracking-wider cursor-pointer">
+                        Clear all
+                      </button>
                     </div>
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">SERIES & VOLUME</label>
-                      <input 
-                        type="text" 
-                        value={postCategory}
-                        onChange={(e) => setPostCategory(e.target.value)}
-                        placeholder="e.g. Urban Monographs Vol. 5"
-                        className="w-full px-3 py-2 border border-[#e5e1d8] bg-white focus:outline-none focus:border-black font-sans text-xs"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">EDITORIAL COVER PHOTOGRAPHY COVER LINK</label>
-                    <input 
-                      type="text" 
-                      value={postCover}
-                      onChange={(e) => setPostCover(e.target.value)}
-                      placeholder="https://images.unsplash.com/photo-..."
-                      className="w-full px-3 py-2 border border-[#e5e1d8] bg-white focus:outline-none focus:border-black font-sans text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">NARRATIVE MANUSCRIPT (SUPPORT MARKDOWN)</label>
-                    <textarea 
-                      rows={12} 
-                      value={postContent}
-                      onChange={(e) => setPostContent(e.target.value)}
-                      placeholder="Write your story manuscript here. Supports headers (#, ##), lists, and visual spacing guidelines..."
-                      required
-                      className="w-full px-4 py-3 border border-[#e5e1d8] bg-white focus:outline-none focus:border-black font-serif text-sm leading-relaxed"
-                    />
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={publishing}
-                    className="w-full py-3.5 bg-black text-[#f7f4ed] font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer"
-                  >
-                    {publishing 
-                      ? "COMMITTING TO ARCHIVE..." 
-                      : editingPostId 
-                        ? "SAVE UPDATES TO MONOGRAPH JOURNAL" 
-                        : "PUBLISH TO GENERAL STORIES"}
-                  </button>
-
-                </form>
-
-                {/* Narrative list summary */}
-                <div className="lg:col-span-4 border border-[#e5e1d8] p-4 bg-[#faf9f6] flex flex-col justify-between">
-                  <div className="space-y-4">
-                    <h5 className="font-mono text-[10px] tracking-widest text-black uppercase font-bold border-b border-[#e5e1d8] pb-2">Active Monograph Index</h5>
-                    <div className="space-y-3 max-h-[350px] overflow-y-auto">
-                      {posts.map((post, index) => (
-                        <div key={post.id || index} className="p-2.5 bg-white border border-[#e5e1d8] flex justify-between items-start gap-2">
-                          <div>
-                            <p className="font-serif font-semibold text-xs leading-tight">{post.title}</p>
-                            <p className="font-mono text-[8px] text-[#8b8780] tracking-wider uppercase mt-1">{post.category}</p>
+                    <div className="flex gap-3 overflow-x-auto pb-2">
+                      {photoUrlsList.map((url, i) => (
+                        <div key={i} className="relative w-24 h-20 flex-shrink-0 border border-[#e5e1d8] group overflow-hidden bg-white">
+                          <img src={url} alt={`img-${i}`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                          <div className="absolute top-1 left-1 bg-black text-white text-[7px] font-mono px-1 leading-tight">
+                            {i === 0 ? "COVER" : `#${i + 1}`}
                           </div>
-                          <div className="flex items-center gap-1.5 pt-1">
+                          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
                             <button
                               type="button"
-                              onClick={() => handleStartEditPost(post)}
-                              className="text-neutral-500 hover:text-black transition-colors cursor-pointer"
-                              title="Modify Narrative Manuscript"
+                              onClick={() => { setEditorImage(url); setEditorSource("new"); }}
+                              className="text-white cursor-pointer hover:text-amber-400"
+                              title="Edit"
                             >
-                              <span className="material-symbols-outlined text-[15px]">edit</span>
+                              <span className="material-symbols-outlined text-sm">tune</span>
                             </button>
-                            {post.id && (
-                              <button 
-                                onClick={() => handleDeletePost(post.id!)}
-                                className="text-red-500 hover:text-red-700 transition-colors cursor-pointer"
-                                title="Retire Narrative"
-                              >
-                                <span className="material-symbols-outlined text-[15px]">delete</span>
-                              </button>
-                            )}
+                            <button
+                              type="button"
+                              onClick={() => setPhotoUrlsList(prev => prev.filter((_, j) => j !== i))}
+                              className="text-white cursor-pointer hover:text-red-400"
+                              title="Remove"
+                            >
+                              <span className="material-symbols-outlined text-sm">close</span>
+                            </button>
+                          </div>
+                          {/* Move left/right */}
+                          <div className="absolute bottom-0 left-0 right-0 bg-black/80 flex justify-between px-1 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button disabled={i === 0} onClick={() => setPhotoUrlsList(p => { const n=[...p]; [n[i-1],n[i]]=[n[i],n[i-1]]; return n; })} className="text-white text-[9px] disabled:opacity-30 cursor-pointer">←</button>
+                            <button disabled={i === photoUrlsList.length-1} onClick={() => setPhotoUrlsList(p => { const n=[...p]; [n[i],n[i+1]]=[n[i+1],n[i]]; return n; })} className="text-white text-[9px] disabled:opacity-30 cursor-pointer">→</button>
                           </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                  
-                  <div className="p-3.5 bg-neutral-100 border border-neutral-200 mt-4">
-                    <span className="font-mono text-[8px] text-[#8b8780] tracking-wider uppercase block mb-1">Curation Standard</span>
-                    <p className="font-sans text-[11px] leading-relaxed text-[#5f5e59]">
-                      Stories are structured as rich markdown columns read as continuous scrolling blocks. It displays beautifully paired Playfair Display typography.
-                    </p>
-                  </div>
-                </div>
 
-              </div>
-            </div>
-          )}
-
-          {/* Tab 4: VIDEO AI CURATOR */}
-          {activeTab === "video" && (
-            <div className="space-y-8">
-              <div>
-                <h3 className="font-serif text-lg font-bold">Video Content Understanding</h3>
-                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider">Perform highly complex temporal analysis with Gemini Pro</p>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* Video controls (Left) */}
-                <div className="lg:col-span-6 space-y-5 border border-[#e5e1d8] p-5 bg-white">
-                  
-                  <div className="space-y-1">
-                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">VIDEO INPUT CANYON URL</label>
-                    <input 
-                      type="text" 
-                      value={videoUrl}
-                      onChange={(e) => { setVideoUrl(e.target.value); setVideoBase64(""); }}
-                      placeholder="e.g. https://www.w3schools.com/html/mov_bbb.mp4"
-                      className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
-                    />
-                    <p className="font-mono text-[8px] text-[#8b8780] uppercase mt-1">Or drop a local video payload file below.</p>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">LOCAL VIDEO FILE STREAM</label>
-                    <input 
-                      type="file"
-                      accept="video/*"
-                      onChange={handleVideoFileChange}
-                      className="w-full text-xs font-mono file:mr-4 file:py-1.5 file:px-3 file:border file:border-black file:bg-black file:text-white file:text-[9px] file:tracking-widest file:uppercase hover:file:opacity-90 file:cursor-pointer p-1.5 border border-[#e5e1d8] bg-[#faf9f6]"
-                    />
-                  </div>
-
-                  {/* Playable container */}
-                  <div className="border border-[#e5e1d8] p-3 bg-neutral-50 flex flex-col justify-center min-h-[160px]">
-                    {(videoUrl || videoBase64) ? (
-                      <video 
-                        src={videoUrl || videoBase64} 
-                        controls 
-                        className="w-full max-h-[150px] object-contain bg-black"
+                    {/* Or paste URL */}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        value={newUrlInput}
+                        onChange={e => setNewUrlInput(e.target.value)}
+                        placeholder="Paste an image URL and press Add..."
+                        className="flex-1 px-3 py-2 border border-[#e5e1d8] bg-white focus:outline-none focus:border-black font-sans text-xs"
                       />
-                    ) : (
-                      <div className="text-center p-6 text-[#8b8780]">
-                        <span className="material-symbols-outlined text-3xl opacity-30">movie</span>
-                        <p className="font-mono text-[9px] uppercase mt-2">NO ACTIVE VIDEO LOADED</p>
-                      </div>
-                    )}
+                      <button
+                        type="button"
+                        onClick={() => { if (newUrlInput.trim()) { setPhotoUrlsList(p => [...p, newUrlInput.trim()]); setNewUrlInput(""); } }}
+                        className="px-4 bg-black text-white font-mono text-[9px] uppercase tracking-wider hover:opacity-90 cursor-pointer"
+                      >
+                        Add URL
+                      </button>
+                    </div>
                   </div>
+                )}
 
+                {/* Gemini analyze */}
+                {photoUrlsList.length > 0 && (
                   <button
                     type="button"
-                    onClick={handleGeminiVideoAnalysis}
-                    disabled={videoAnalyzing}
-                    className="w-full py-3.5 bg-black hover:opacity-90 text-[#f7f4ed] font-mono text-[10px] tracking-widest uppercase flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer"
+                    disabled={imageAnalyzing}
+                    onClick={() => handleAnalyzeImage(photoUrlsList[0], "image/jpeg", setPhotoCaption, setImageAnalyzing)}
+                    className="flex items-center gap-2 px-4 py-2 border border-[#e5e1d8] hover:border-amber-400 bg-white font-mono text-[9px] uppercase tracking-widest text-[#5f5e59] hover:text-amber-700 transition-all cursor-pointer disabled:opacity-50"
                   >
-                    {videoAnalyzing ? (
-                      <>
-                        <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span>
-                        <span>ANALYZING VIDEO COGNITION...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-sm">movie_filter</span>
-                        <span>EXECUTE GEMINI CINEMATIC AUDIT</span>
-                      </>
-                    )}
+                    {imageAnalyzing ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> : <span className="material-symbols-outlined text-sm">auto_awesome</span>}
+                    {imageAnalyzing ? "Analyzing with Gemini..." : "Auto-generate caption with Gemini AI"}
                   </button>
+                )}
 
-                </div>
-
-                {/* Analysis outputs (Right) */}
-                <div className="lg:col-span-6 border border-[#e5e1d8] p-5 bg-[#faf9f6] flex flex-col justify-between min-h-[380px]">
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 pb-2 border-b border-[#e5e1d8] text-black">
-                      <span className="material-symbols-outlined">analytics</span>
-                      <h4 className="font-mono text-[10px] tracking-widest uppercase font-bold">LIVESTREAM AUDIT TELEMETRY</h4>
-                    </div>
-
-                    <div className="text-left py-1 prose prose-stone">
-                      {videoAnalysisResult ? (
-                        <div className="prose prose-stone text-xs font-sans whitespace-pre-wrap leading-relaxed text-[#1a1a1a]">
-                          {videoAnalysisResult}
-                        </div>
-                      ) : (
-                        <div className="p-10 text-center text-[#8b8780]">
-                          {videoAnalyzing ? (
-                            <div className="flex flex-col items-center gap-3">
-                              <SpiralLoader size={70} showText={false} />
-                              <p className="font-mono text-[8px] uppercase tracking-widest ml-3">AUDITING FILM SEQUENCE... TIMEOUTS & CHANNELS ACTIVE</p>
-                            </div>
-                          ) : (
-                            <p className="font-sans italic text-xs">Waiting for video stream activation to execute cognitive mapping...</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
+                {/* Metadata form */}
+                <form onSubmit={handlePublishPhoto} className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="space-y-1">
+                    <label className="label-sm">Title *</label>
+                    <input type="text" value={photoTitle} onChange={e => setPhotoTitle(e.target.value)} placeholder="e.g. Geometry in Banaras" required className="field" />
                   </div>
-
-                  <div className="p-3.5 bg-white border border-[#e5e1d8]/80 font-mono text-[8.5px] text-[#8b8780] leading-relaxed uppercase">
-                    SYSTEM CORRESPONDENT: Gemini uses model: gemini-3.1-pro-preview pipeline proxy to audit raw media frame progressions.
+                  <div className="space-y-1">
+                    <label className="label-sm">Category *</label>
+                    <select value={photoCategory} onChange={e => setPhotoCategory(e.target.value)} className="field">
+                      {["Architecture","Landscape","Portrait","Conceptual","Minimalist","Street","Abstract"].map(c => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
                   </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-          {/* Tab 5: SYSTEM MATRIX */}
-          {activeTab === "settings" && (
-            <div className="space-y-8">
-              <div>
-                <h3 className="font-serif text-lg font-bold">System Matrix Settings</h3>
-                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider">Technical pipeline bypasses and original catalog resets</p>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                
-                <div className="border border-[#e5e1d8] p-5 bg-white space-y-4">
-                  <h4 className="font-serif text-base font-bold text-black border-b border-[#e5e1d8] pb-2">Catalog Database Refresh</h4>
-                  <p className="font-sans text-[12px] leading-relaxed text-[#5f5e59]">
-                    If your database has suffered clutter, you can force seed initial default photography masterpieces and premium journals.
-                  </p>
-                  <button
-                    onClick={() => {
-                      if (confirm("Proceed with refreshing live catalogs? This will overwrite the database collections with premium seed items.")) {
-                        setActionMessage("SUCCESS: Recalibrating catalog presets... database updated.");
-                        onRefreshData();
-                      }
-                    }}
-                    className="px-4 py-2 bg-black text-white font-mono text-[9px] uppercase tracking-widest cursor-pointer hover:opacity-85"
-                  >
-                    SEED DEFAULT GALLERY
-                  </button>
-                </div>
-
-                <div className="border border-[#e5e1d8] p-5 bg-white space-y-4">
-                  <h4 className="font-serif text-base font-bold text-black border-b border-[#e5e1d8] pb-2">Firebase Client Core Status</h4>
-                  <div className="space-y-2 font-mono text-[10px] text-[#5f5e59]">
-                    <div className="flex justify-between">
-                      <span>PROJECT CONFIG:</span>
-                      <span className="text-black font-semibold">LOADED</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>DATABASE_ID:</span>
-                      <span className="text-black overflow-hidden truncate max-w-[200px]" title="ai-studio-97045bd3-44f2-46c3-9e0e-bf492f13c2c1">
-                        ai-studio-97045...
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>SSL_TUNNEL:</span>
-                      <span className="text-emerald-600 font-bold">SECURE WSS_LINK</span>
-                    </div>
+                  <div className="space-y-1">
+                    <label className="label-sm">Location</label>
+                    <input type="text" value={photoLocation} onChange={e => setPhotoLocation(e.target.value)} placeholder="e.g. Kolkata, India" className="field" />
                   </div>
-                </div>
-
-              </div>
-            </div>
-          )}
-
-        </div>
-
-        {/* Console Margin Footer */}
-        <footer className="mt-16 pt-6 border-t border-[#e5e1d8] flex justify-between items-center text-[#8b8780] font-mono text-[8px] uppercase">
-          <span>COGNITIVE PLATFORM DESIGN: AESTHETE V.3</span>
-          <span>ADMIN_TERMINAL_ISOLATED_OK</span>
-        </footer>
-
-      </main>
-
-      {/* Photo Edit Overlay Modal */}
-      {editingPhoto && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#fcfbfa] border border-[#e5e1d8] w-full max-w-2xl max-h-[95vh] overflow-y-auto flex flex-col p-6 md:p-8 space-y-6">
-            
-            {/* Modal Header */}
-            <div className="flex justify-between items-center pb-4 border-b border-[#e5e1d8]">
-              <div>
-                <span className="font-mono text-[8px] tracking-[0.25em] text-[#8b8780] uppercase font-semibold">SYSTEM METADATA REVISION BLOCK</span>
-                <h3 className="font-serif text-xl font-bold text-black mt-1">Edit Exhibit Details</h3>
-              </div>
-              <button 
-                onClick={() => setEditingPhoto(null)}
-                className="text-neutral-500 hover:text-black p-1 cursor-pointer transition-colors"
-                type="button"
-              >
-                <span className="material-symbols-outlined text-[20px] block">close</span>
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <form onSubmit={handleSavePhotoEdit} className="space-y-5">
-              
-              {/* Source Toggle */}
-              <div className="grid grid-cols-2 gap-4 pb-1">
-                <button
-                  type="button"
-                  onClick={() => setEditPhotoImageSource("url")}
-                  className={`py-2 text-center font-mono text-[9px] uppercase tracking-widest border transition-colors cursor-pointer ${
-                    editPhotoImageSource === "url" 
-                      ? "border-black bg-black text-[#f7f4ed] font-semibold" 
-                      : "border-[#e5e1d8] hover:border-black text-[#5f5e59]"
-                  }`}
-                >
-                  EXTERNAL SECURE PRESET URL
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditPhotoImageSource("file")}
-                  className={`py-2 text-center font-mono text-[9px] uppercase tracking-widest border transition-colors cursor-pointer ${
-                    editPhotoImageSource === "file" 
-                      ? "border-black bg-black text-[#f7f4ed] font-semibold" 
-                      : "border-[#e5e1d8] hover:border-black text-[#5f5e59]"
-                  }`}
-                >
-                  LOCAL HD FILE DIRECT UPLOAD
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                
-                {/* Image Preview */}
-                <div className="border border-[#e5e1d8] p-3 bg-neutral-50 flex flex-col justify-between min-h-[220px]">
-                  <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mb-2 block font-semibold animate-pulse">ASSET STREAM UPDATE PREVIEW</span>
-                  <div className="flex-grow flex items-center justify-center bg-white border border-[#e5e1d8] overflow-hidden p-2 aspect-[16/10] max-h-[170px]">
-                    {(editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64) ? (
-                      <img 
-                        src={editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64} 
-                        alt="Edit Asset Preview" 
-                        className="max-h-full object-contain"
-                        referrerPolicy="no-referrer"
-                      />
-                    ) : (
-                      <div className="text-center p-6">
-                        <span className="material-symbols-outlined text-3xl text-black/15">add_a_photo</span>
-                        <p className="font-mono text-[10px] text-[#8b8780] uppercase mt-2 font-semibold">NO ACTIVE STREAM CHANNELS</p>
-                      </div>
-                    )}
+                  <div className="space-y-1">
+                    <label className="label-sm">Tags (comma-separated)</label>
+                    <input type="text" value={photoTags} onChange={e => setPhotoTags(e.target.value)} placeholder="film, architecture, banaras" className="field font-mono" />
                   </div>
-                  {(editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setActiveEditorImage(editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64);
-                        setActiveEditorSource("edit");
-                      }}
-                      className="mt-2 w-full py-1.5 border border-[#eab308] bg-[#eab308]/15 hover:bg-[#eab308] hover:text-black text-amber-950 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold"
-                    >
-                      <span className="material-symbols-outlined text-xs">tune</span>
-                      LAUNCH CROP / FLIP / ROTATE / COPYRIGHT
+                  <div className="md:col-span-2 space-y-1">
+                    <label className="label-sm">Caption / Curator Note</label>
+                    <textarea rows={3} value={photoCaption} onChange={e => setPhotoCaption(e.target.value)} placeholder="Write a description or use Gemini AI above to auto-generate..." className="field resize-none" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <button type="submit" disabled={publishing || compressing} className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
+                      {publishing ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Publishing...</> : <><span className="material-symbols-outlined text-sm">publish</span> Publish to Gallery</>}
                     </button>
-                  )}
-                </div>
+                  </div>
+                </form>
+              </section>
 
-                {/* File/Link Controls */}
-                <div className="space-y-4">
-                  {editPhotoImageSource === "url" ? (
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">PICTURE LINK URL</label>
-                      <input 
-                        type="text" 
-                        value={editPhotoUrl}
-                        onChange={(e) => { setEditPhotoUrl(e.target.value); setEditPhotoBase64(""); }}
-                        placeholder="https://images.unsplash.com/photo-..."
-                        className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
+              {/* ── Library Section ── */}
+              <section className="space-y-5 border-t border-[#e5e1d8] pt-8">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h2 className="font-serif text-xl font-bold text-black">Photo Library</h2>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {/* Search */}
+                    <div className="relative">
+                      <span className="material-symbols-outlined text-sm absolute left-2.5 top-1/2 -translate-y-1/2 text-[#8b8780]">search</span>
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        placeholder="Search..."
+                        className="pl-8 pr-3 py-1.5 border border-[#e5e1d8] bg-white focus:outline-none focus:border-black font-sans text-xs w-40"
                       />
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">SELECT NEW HD FILE</label>
-                      <input 
-                        type="file"
-                        accept="image/*"
-                        onChange={handleEditPhotoFileChange}
-                        className="w-full text-xs font-mono file:mr-4 file:py-1.5 file:px-3 file:border file:border-black file:bg-black file:text-white file:text-[9px] file:tracking-widest file:uppercase hover:file:opacity-90 file:cursor-pointer p-1.5 border border-[#e5e1d8] bg-[#faf9f6]"
-                      />
+                    {/* View toggle */}
+                    <div className="flex border border-[#e5e1d8] overflow-hidden">
+                      <button onClick={() => setLibraryView("grid")} className={`px-2.5 py-1.5 cursor-pointer transition-colors ${libraryView === "grid" ? "bg-black text-white" : "bg-white text-[#8b8780] hover:bg-[#f7f4ed]"}`}>
+                        <span className="material-symbols-outlined text-sm">grid_view</span>
+                      </button>
+                      <button onClick={() => setLibraryView("list")} className={`px-2.5 py-1.5 cursor-pointer transition-colors ${libraryView === "list" ? "bg-black text-white" : "bg-white text-[#8b8780] hover:bg-[#f7f4ed]"}`}>
+                        <span className="material-symbols-outlined text-sm">list</span>
+                      </button>
                     </div>
-                  )}
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">EXHIBIT TITLE</label>
-                      <input 
-                        type="text" 
-                        value={editPhotoTitle}
-                        onChange={(e) => setEditPhotoTitle(e.target.value)}
-                        placeholder="e.g. Geometry in Banaras"
-                        required
-                        className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-serif text-sm font-semibold"
-                      />
-                    </div>
-                    
-                    <div className="space-y-1">
-                      <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">CATEGORY PORT</label>
-                      <select 
-                        value={editPhotoCategory}
-                        onChange={(e) => setEditPhotoCategory(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-[11px] uppercase tracking-wider"
-                      >
-                        <option value="Architecture">Architecture</option>
-                        <option value="Landscape">Landscape</option>
-                        <option value="Portrait">Portrait</option>
-                        <option value="Conceptual">Conceptual</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">CAPE LOCATION</label>
-                    <input 
-                      type="text" 
-                      value={editPhotoLocation}
-                      onChange={(e) => setEditPhotoLocation(e.target.value)}
-                      placeholder="e.g. Banaras Ghats, India"
-                      className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">TAGS / COLLECTIONS (COMMA-SEPARATED)</label>
-                    <input 
-                      type="text" 
-                      value={editPhotoTags}
-                      onChange={(e) => setEditPhotoTags(e.target.value)}
-                      placeholder="e.g. film, gold, street, landscape"
-                      className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-mono text-xs"
-                    />
-                  </div>
-                </div>
-
-              </div>
-
-              {/* EDIT CAROUSEL TRACK */}
-              <div className="space-y-3 pt-3 border-t border-dashed border-[#e5e1d8]">
-                <div className="flex justify-between items-center">
-                  <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">
-                    EXHIBIT CAROUSEL CHANNEL TRACK & ASSETS ({editPhotoUrlsList.length} ITEMS)
-                  </label>
-                  <span className="font-mono text-[8px] text-[#8b8780] uppercase">FIRST ITEM IS THE MAIN COVER</span>
-                </div>
-
-                {editPhotoUrlsList.length > 0 ? (
-                  <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin">
-                    {editPhotoUrlsList.map((url, i) => (
-                      <div key={i} className="relative w-28 h-24 border border-[#e5e1d8] bg-white p-1 flex-shrink-0 group overflow-hidden">
-                        <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt={`Edit Exhibit ${i + 1}`} />
-                        <div className="absolute top-1 left-1 bg-black text-[#f7f4ed] text-[8px] font-mono px-1 py-0.5 leading-none z-10 select-none">
-                          {i === 0 ? "COVER" : `#${i + 1}`}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEditImageUrl(i)}
-                          className="absolute -top-1 -right-1 bg-red-600 hover:bg-red-800 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs cursor-pointer shadow-md duration-200 z-10"
-                          title="Remove photo from edit stream"
-                        >
-                          ×
+                    {/* Bulk actions */}
+                    {selectedIds.size > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-[9px] text-[#5f5e59] uppercase">{selectedIds.size} selected</span>
+                        <button onClick={handleBulkDelete} disabled={bulkDeleting} className="px-3 py-1.5 bg-red-600 text-white font-mono text-[9px] uppercase tracking-wider cursor-pointer hover:bg-red-700 disabled:opacity-50 flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">delete</span>
+                          {bulkDeleting ? "Deleting..." : "Delete Selected"}
                         </button>
-                        {/* Reordering / Arranging bar at the bottom */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-black/85 text-white flex justify-between px-1.5 py-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-20">
-                          <button
-                            type="button"
-                            disabled={i === 0}
-                            onClick={() => {
-                              setEditPhotoUrlsList(prev => {
-                                const next = [...prev];
-                                const temp = next[i];
-                                next[i] = next[i - 1];
-                                next[i - 1] = temp;
-                                return next;
-                              });
-                            }}
-                            className="text-[10px] font-mono font-bold hover:text-amber-400 disabled:opacity-30 disabled:hover:text-white cursor-pointer px-1"
-                            title="Move Left"
-                          >
-                            ←
-                          </button>
-                          <span className="text-[7px] font-mono self-center uppercase tracking-widest text-[#a8a49c] select-none font-semibold">ARRANGE</span>
-                          <button
-                            type="button"
-                            disabled={i === editPhotoUrlsList.length - 1}
-                            onClick={() => {
-                              setEditPhotoUrlsList(prev => {
-                                const next = [...prev];
-                                const temp = next[i];
-                                next[i] = next[i + 1];
-                                next[i + 1] = temp;
-                                return next;
-                              });
-                            }}
-                            className="text-[10px] font-mono font-bold hover:text-amber-400 disabled:opacity-30 disabled:hover:text-white cursor-pointer px-1"
-                            title="Move Right"
-                          >
-                            →
-                          </button>
+                        <button onClick={clearSelection} className="px-3 py-1.5 border border-[#e5e1d8] font-mono text-[9px] uppercase cursor-pointer hover:border-black text-[#5f5e59]">
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <button onClick={selectAll} className="px-3 py-1.5 border border-[#e5e1d8] font-mono text-[9px] uppercase cursor-pointer hover:border-black text-[#5f5e59]">
+                        Select All
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {filteredPhotos.length === 0 ? (
+                  <div className="text-center py-16 bg-white border border-[#e5e1d8]">
+                    <span className="material-symbols-outlined text-4xl text-[#c5c0b8]">photo_library</span>
+                    <p className="font-mono text-[10px] text-[#8b8780] uppercase mt-3">{searchQuery ? "No results found" : "No photos yet — upload above"}</p>
+                  </div>
+                ) : libraryView === "grid" ? (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {filteredPhotos.map((photo, i) => (
+                      <div
+                        key={photo.id || i}
+                        className={`relative group border-2 overflow-hidden bg-white cursor-pointer transition-all duration-150 ${
+                          photo.id && selectedIds.has(photo.id) ? "border-black" : "border-[#e5e1d8] hover:border-black/40"
+                        }`}
+                        onClick={() => photo.id && toggleSelect(photo.id)}
+                      >
+                        <div className="aspect-square overflow-hidden">
+                          <img src={photo.imageUrl} alt={photo.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" referrerPolicy="no-referrer" />
+                        </div>
+                        {/* Checkbox */}
+                        <div className={`absolute top-2 left-2 w-5 h-5 border-2 flex items-center justify-center transition-all duration-150 ${
+                          photo.id && selectedIds.has(photo.id) ? "border-black bg-black" : "border-white bg-white/80 opacity-0 group-hover:opacity-100"
+                        }`}>
+                          {photo.id && selectedIds.has(photo.id) && <span className="text-white text-xs font-bold">✓</span>}
+                        </div>
+                        {/* Hover actions */}
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
+                          <p className="font-sans text-white text-[10px] font-medium truncate">{photo.title}</p>
+                          <p className="font-mono text-white/60 text-[8px] uppercase">{photo.category}</p>
+                          <div className="flex gap-2 mt-1.5" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => openEditPhoto(photo)} className="text-white hover:text-amber-400 cursor-pointer transition-colors">
+                              <span className="material-symbols-outlined text-sm">edit</span>
+                            </button>
+                            {photo.id && (
+                              <button onClick={() => handleDeletePhoto(photo.id!)} className="text-white hover:text-red-400 cursor-pointer transition-colors">
+                                <span className="material-symbols-outlined text-sm">delete</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="border border-dashed border-[#e5e1d8] py-4 text-center bg-neutral-50">
-                    <span className="font-mono text-[10px] text-[#8b8780] uppercase">No extra carousel assets. Append some links or upload files beneath.</span>
+                  <div className="border border-[#e5e1d8] bg-white overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#faf9f6] border-b border-[#e5e1d8]">
+                        <tr>
+                          <th className="p-3 w-8"><input type="checkbox" checked={selectedIds.size === filteredPhotos.filter(p => p.id).length && filteredPhotos.length > 0} onChange={e => e.target.checked ? selectAll() : clearSelection()} className="cursor-pointer" /></th>
+                          <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780]">Image</th>
+                          <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780]">Title</th>
+                          <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] hidden md:table-cell">Category</th>
+                          <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] hidden md:table-cell">Date</th>
+                          <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] text-center">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e5e1d8]">
+                        {filteredPhotos.map((photo, i) => (
+                          <tr
+                            key={photo.id || i}
+                            draggable
+                            onDragStart={e => handleRowDragStart(e, i)}
+                            onDragOver={e => handleRowDragOver(e, i)}
+                            onDrop={e => handleRowDrop(e, i)}
+                            className={`transition-colors ${draggedIndex === i ? "bg-amber-50 opacity-70" : "hover:bg-[#faf9f6]"}`}
+                          >
+                            <td className="p-3">
+                              {photo.id && (
+                                <input type="checkbox" checked={selectedIds.has(photo.id)} onChange={() => toggleSelect(photo.id!)} className="cursor-pointer" onClick={e => e.stopPropagation()} />
+                              )}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center gap-2">
+                                <span className="material-symbols-outlined text-[#c5c0b8] text-sm cursor-grab">drag_indicator</span>
+                                <img src={photo.imageUrl} alt={photo.title} className="w-12 h-9 object-cover border border-[#e5e1d8]" referrerPolicy="no-referrer" />
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-serif font-bold text-[#1a1a1a] text-xs">{photo.title}</p>
+                              <p className="font-mono text-[8px] text-[#8b8780]">{photo.location}</p>
+                            </td>
+                            <td className="p-3 hidden md:table-cell font-mono text-[9px] uppercase text-[#5f5e59]">{photo.category}</td>
+                            <td className="p-3 hidden md:table-cell font-mono text-[8px] text-[#8b8780]">
+                              {new Date(photo.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="p-3">
+                              <div className="flex justify-center items-center gap-1">
+                                <button onClick={() => openEditPhoto(photo)} className="text-[#8b8780] hover:text-black p-1.5 cursor-pointer transition-colors" title="Edit">
+                                  <span className="material-symbols-outlined text-sm">edit</span>
+                                </button>
+                                {photo.id && (
+                                  <button onClick={() => handleDeletePhoto(photo.id!)} className="text-[#8b8780] hover:text-red-600 p-1.5 cursor-pointer transition-colors" title="Delete">
+                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════
+              TAB: BLOGS
+          ═══════════════════════════════════════════════════════════════ */}
+          {activeTab === "blogs" && (
+            <div className="space-y-6 max-w-4xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="font-serif text-2xl font-bold text-black">Blog Posts</h1>
+                  <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-1">{posts.length} published narrative{posts.length !== 1 ? "s" : ""}</p>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setBlogTab("list")} className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-wider cursor-pointer border transition-colors ${blogTab === "list" ? "bg-black text-white border-black" : "border-[#e5e1d8] text-[#5f5e59] hover:border-black"}`}>
+                    List
+                  </button>
+                  <button onClick={() => { setBlogTab("editor"); if (!editingPostId) resetBlogForm(); }} className={`px-3 py-1.5 font-mono text-[9px] uppercase tracking-wider cursor-pointer border transition-colors ${blogTab === "editor" ? "bg-black text-white border-black" : "border-[#e5e1d8] text-[#5f5e59] hover:border-black"}`}>
+                    {editingPostId ? "Edit Post" : "New Post"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Blog list */}
+              {blogTab === "list" && (
+                <div className="space-y-3">
+                  {posts.length === 0 ? (
+                    <div className="text-center py-16 bg-white border border-[#e5e1d8]">
+                      <span className="material-symbols-outlined text-4xl text-[#c5c0b8]">article</span>
+                      <p className="font-mono text-[10px] text-[#8b8780] uppercase mt-3">No posts yet — write your first one</p>
+                      <button onClick={() => setBlogTab("editor")} className="mt-4 px-4 py-2 bg-black text-white font-mono text-[9px] uppercase tracking-wider cursor-pointer hover:opacity-90">
+                        Write a Post
+                      </button>
+                    </div>
+                  ) : posts.map((post, i) => (
+                    <div key={post.id || i} className="bg-white border border-[#e5e1d8] p-5 flex gap-4 hover:border-black/30 transition-colors group">
+                      <img
+                        src={post.coverImage}
+                        alt={post.title}
+                        className="w-24 h-16 object-cover border border-[#e5e1d8] flex-shrink-0"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-serif font-bold text-[#1a1a1a] truncate">{post.title}</p>
+                        <p className="font-mono text-[8px] text-amber-700 uppercase tracking-wider mt-0.5">{post.category}</p>
+                        <p className="font-sans text-xs text-[#8b8780] mt-1.5 line-clamp-2">{post.content?.slice(0, 120)}...</p>
+                        {post.analyzedThemes && (
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {post.analyzedThemes.map(t => (
+                              <span key={t} className="font-mono text-[7px] uppercase tracking-widest text-[#8b8780] border border-[#e5e1d8] px-1.5 py-0.5">{t}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-shrink-0 flex flex-col items-end justify-between">
+                        <span className="font-mono text-[8px] text-[#8b8780]">
+                          {new Date(post.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button onClick={() => startEditPost(post)} className="text-[#8b8780] hover:text-black p-1 cursor-pointer transition-colors">
+                            <span className="material-symbols-outlined text-sm">edit</span>
+                          </button>
+                          {post.id && (
+                            <button onClick={() => handleDeletePost(post.id!)} className="text-[#8b8780] hover:text-red-600 p-1 cursor-pointer transition-colors">
+                              <span className="material-symbols-outlined text-sm">delete</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Blog editor */}
+              {blogTab === "editor" && (
+                <form onSubmit={handlePublishPost} className="space-y-5">
+                  {editingPostId && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200">
+                      <span className="material-symbols-outlined text-sm text-amber-600">edit</span>
+                      <span className="font-mono text-[9px] text-amber-700 uppercase tracking-wider">Editing existing post</span>
+                      <button type="button" onClick={() => { resetBlogForm(); setBlogTab("list"); }} className="ml-auto font-mono text-[8px] text-amber-600 hover:text-amber-900 uppercase tracking-wider cursor-pointer">
+                        Cancel edit
+                      </button>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div className="space-y-1">
+                      <label className="label-sm">Title *</label>
+                      <input type="text" value={postTitle} onChange={e => setPostTitle(e.target.value)} placeholder="e.g. The Silence of Concrete" required className="field" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="label-sm">Series / Category</label>
+                      <input type="text" value={postCategory} onChange={e => setPostCategory(e.target.value)} placeholder="e.g. Urban Monographs Vol. 5" className="field" />
+                    </div>
+                    <div className="md:col-span-2 space-y-1">
+                      <label className="label-sm">Cover Image URL</label>
+                      <div className="flex gap-2">
+                        <input type="text" value={postCover} onChange={e => setPostCover(e.target.value)} placeholder="https://images.unsplash.com/..." className="field flex-1" />
+                        {postCover && (
+                          <img src={postCover} alt="Cover" className="w-16 h-10 object-cover border border-[#e5e1d8]" referrerPolicy="no-referrer" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="label-sm">Content * (Markdown supported)</label>
+                      <button
+                        type="button"
+                        disabled={storyAnalyzing}
+                        onClick={handleStoryAnalysis}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e5e1d8] hover:border-amber-400 font-mono text-[8px] uppercase tracking-wider text-[#5f5e59] hover:text-amber-700 transition-all cursor-pointer disabled:opacity-50"
+                      >
+                        {storyAnalyzing ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> : <span className="material-symbols-outlined text-sm">auto_awesome</span>}
+                        {storyAnalyzing ? "Analyzing..." : "Gemini Theme Audit"}
+                      </button>
+                    </div>
+                    <textarea
+                      rows={16}
+                      value={postContent}
+                      onChange={e => setPostContent(e.target.value)}
+                      placeholder={`Write your editorial post here. Markdown is fully supported.\n\n# Heading\n\n**Bold text**, *italic text*, and more.\n\n> Blockquotes for emphasis.\n\n- Bullet points\n- Are supported`}
+                      required
+                      className="field resize-y font-mono text-xs leading-relaxed"
+                    />
+                    <div className="flex justify-between font-mono text-[8px] text-[#8b8780]">
+                      <span>{postContent.length} characters</span>
+                      <span>{postContent.split(/\s+/).filter(Boolean).length} words</span>
+                    </div>
+                  </div>
+
+                  <button type="submit" disabled={publishingPost} className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
+                    {publishingPost ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Saving...</> : <><span className="material-symbols-outlined text-sm">publish</span> {editingPostId ? "Update Post" : "Publish Post"}</>}
+                  </button>
+                </form>
+              )}
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════
+              TAB: VIDEO AI
+          ═══════════════════════════════════════════════════════════════ */}
+          {activeTab === "video" && (
+            <div className="space-y-6 max-w-4xl">
+              <div>
+                <h1 className="font-serif text-2xl font-bold text-black">Video Analysis</h1>
+                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-1">Museum-grade cinematic critique powered by Gemini AI</p>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <label className="label-sm">Video URL</label>
+                    <input type="text" value={videoUrl} onChange={e => { setVideoUrl(e.target.value); setVideoBase64(""); }} placeholder="https://example.com/video.mp4" className="field" />
+                  </div>
+                  <div className="text-center font-mono text-[9px] text-[#8b8780] uppercase">— or —</div>
+                  <div className="space-y-1">
+                    <label className="label-sm">Upload Local Video</label>
+                    <input type="file" accept="video/*" onChange={handleVideoFile} className="w-full text-xs font-mono file:mr-3 file:py-1.5 file:px-3 file:border file:border-black file:bg-black file:text-white file:text-[9px] file:tracking-widest file:uppercase hover:file:opacity-90 file:cursor-pointer p-1.5 border border-[#e5e1d8] bg-white" />
+                  </div>
+                  {(videoUrl || videoBase64) && (
+                    <div className="border border-[#e5e1d8] bg-black overflow-hidden">
+                      <video src={videoUrl || videoBase64} controls className="w-full max-h-52 object-contain" />
+                    </div>
+                  )}
+                  <button
+                    onClick={handleVideoAnalyze}
+                    disabled={videoAnalyzing}
+                    className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {videoAnalyzing ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Analyzing...</> : <><span className="material-symbols-outlined text-sm">movie_filter</span> Analyze with Gemini</>}
+                  </button>
+                </div>
+
+                <div className="border border-[#e5e1d8] bg-white p-5 min-h-64 flex flex-col">
+                  <div className="flex items-center gap-2 pb-3 border-b border-[#e5e1d8]">
+                    <span className="material-symbols-outlined text-sm text-[#8b8780]">analytics</span>
+                    <h3 className="font-mono text-[9px] uppercase tracking-widest text-[#5f5e59]">Gemini Analysis Output</h3>
+                  </div>
+                  <div className="flex-1 mt-4 overflow-y-auto">
+                    {videoAnalyzing ? (
+                      <div className="flex flex-col items-center justify-center h-full gap-4">
+                        <SpiralLoader size={60} showText={false} />
+                        <p className="font-mono text-[8px] uppercase tracking-widest text-[#8b8780] animate-pulse">Processing film frames...</p>
+                      </div>
+                    ) : videoResult ? (
+                      <div className="font-sans text-xs leading-relaxed text-[#1a1a1a] whitespace-pre-wrap">{videoResult}</div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-center text-[#8b8780]">
+                        <span className="material-symbols-outlined text-3xl opacity-30">movie</span>
+                        <p className="font-sans italic text-xs mt-3">Load a video and click Analyze to begin the cinematic audit.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══════════════════════════════════════════════════════════════
+              TAB: SETTINGS
+          ═══════════════════════════════════════════════════════════════ */}
+          {activeTab === "settings" && (
+            <div className="space-y-6 max-w-2xl">
+              <div>
+                <h1 className="font-serif text-2xl font-bold text-black">Settings</h1>
+                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-1">System configuration and account management</p>
+              </div>
+
+              {/* Account card */}
+              <div className="bg-white border border-[#e5e1d8] p-6 space-y-4">
+                <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59] border-b border-[#e5e1d8] pb-3">Admin Account</h3>
+                <div className="flex items-center gap-4">
+                  {userPhoto && <img src={userPhoto} alt={userName} className="w-12 h-12 rounded-full border border-[#e5e1d8]" />}
+                  <div>
+                    <p className="font-serif font-bold text-[#1a1a1a]">{userName}</p>
+                    <p className="font-mono text-[9px] text-[#8b8780]">{userEmail}</p>
+                    <p className="font-mono text-[8px] text-emerald-600 uppercase tracking-wider mt-0.5">● Authenticated via Google OAuth 2.0</p>
+                  </div>
+                </div>
+                <button onClick={onLogout} className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 font-mono text-[9px] uppercase tracking-wider cursor-pointer transition-colors">
+                  Sign Out
+                </button>
+              </div>
+
+              {/* Firebase status */}
+              <div className="bg-white border border-[#e5e1d8] p-6 space-y-3">
+                <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59] border-b border-[#e5e1d8] pb-3">Firebase Status</h3>
+                {[
+                  { k: "Project ID", v: "comet-db-c8090" },
+                  { k: "Database ID", v: "ai-studio-97045bd3..." },
+                  { k: "Auth Provider", v: "Google OAuth 2.0" },
+                  { k: "Storage Method", v: "Firestore base64 (compressed)" },
+                  { k: "Connection", v: "Active ✓", highlight: true },
+                ].map(row => (
+                  <div key={row.k} className="flex justify-between items-center font-mono text-[9px]">
+                    <span className="text-[#8b8780] uppercase tracking-wider">{row.k}</span>
+                    <span className={row.highlight ? "text-emerald-600 font-bold" : "text-[#1a1a1a]"}>{row.v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Admin email config hint */}
+              <div className="bg-amber-50 border border-amber-200 p-5 space-y-2">
+                <h3 className="font-mono text-[10px] uppercase tracking-widest text-amber-800">Admin Email Restriction</h3>
+                <p className="font-sans text-xs text-amber-700 leading-relaxed">
+                  {import.meta.env.VITE_ADMIN_EMAIL
+                    ? <>Restricted to: <strong>{import.meta.env.VITE_ADMIN_EMAIL}</strong>. Only this Google account can access the admin portal.</>
+                    : <>No <code className="bg-amber-100 px-1">VITE_ADMIN_EMAIL</code> environment variable set. Any Google account can currently log in. Set this variable in Replit Secrets to restrict access to your email only.</>
+                  }
+                </p>
+              </div>
+
+              {/* Storage */}
+              <div className="bg-white border border-[#e5e1d8] p-6 space-y-3">
+                <h3 className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59] border-b border-[#e5e1d8] pb-3">Storage Overview</h3>
+                <div className="flex justify-between font-mono text-[9px]">
+                  <span className="text-[#8b8780] uppercase">Total Photos</span>
+                  <span className="text-black">{photos.length}</span>
+                </div>
+                <div className="flex justify-between font-mono text-[9px]">
+                  <span className="text-[#8b8780] uppercase">Estimated DB size</span>
+                  <span className="text-black">{formatBytes(totalBytes)}</span>
+                </div>
+                <div className="flex justify-between font-mono text-[9px]">
+                  <span className="text-[#8b8780] uppercase">Capacity used</span>
+                  <span className={storagePct > 80 ? "text-red-600 font-bold" : "text-black"}>{storagePct}%</span>
+                </div>
+                <div className="w-full bg-[#e5e1d8] h-1.5">
+                  <div className={`h-full transition-all ${storagePct > 80 ? "bg-red-500" : "bg-emerald-500"}`} style={{ width: `${storagePct}%` }} />
+                </div>
+                <p className="font-mono text-[8px] text-[#8b8780]">Images are auto-compressed to JPEG 75% quality, max 1000px, with watermark injection.</p>
+              </div>
+            </div>
+          )}
+
+        </main>
+      </div>
+
+      {/* ── EDIT PHOTO MODAL ─────────────────────────────────────────────────── */}
+      {editingPhoto && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4" onClick={e => { if (e.target === e.currentTarget) setEditingPhoto(null); }}>
+          <div className="bg-[#fcfbfa] border border-[#e5e1d8] w-full max-w-2xl max-h-[92vh] overflow-y-auto">
+            {/* Modal header */}
+            <div className="flex justify-between items-center px-6 py-4 border-b border-[#e5e1d8] sticky top-0 bg-[#fcfbfa] z-10">
+              <div>
+                <p className="font-mono text-[8px] text-[#8b8780] uppercase tracking-widest">Editing Photo</p>
+                <h3 className="font-serif text-lg font-bold text-black mt-0.5">{editingPhoto.title}</h3>
+              </div>
+              <button onClick={() => setEditingPhoto(null)} className="text-[#8b8780] hover:text-black cursor-pointer p-1 transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEdit} className="p-6 space-y-5">
+              {/* Image source toggle */}
+              <div className="grid grid-cols-2 gap-3">
+                {(["url", "file"] as const).map(src => (
+                  <button
+                    key={src}
+                    type="button"
+                    onClick={() => setEditImageSource(src)}
+                    className={`py-2 font-mono text-[9px] uppercase tracking-widest border cursor-pointer transition-colors ${editImageSource === src ? "border-black bg-black text-white" : "border-[#e5e1d8] text-[#5f5e59] hover:border-black"}`}
+                  >
+                    {src === "url" ? "External URL" : "Upload File"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Current images */}
+              <div className="space-y-2">
+                <label className="label-sm">Images ({editUrlsList.length}) — first is cover</label>
+                {editUrlsList.length > 0 && (
+                  <div className="flex gap-2 overflow-x-auto pb-2">
+                    {editUrlsList.map((url, i) => (
+                      <div key={i} className="relative w-20 h-16 flex-shrink-0 border border-[#e5e1d8] group overflow-hidden bg-white">
+                        <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                        <div className="absolute top-0.5 left-0.5 bg-black text-white text-[6px] font-mono px-1">{i === 0 ? "COVER" : `#${i+1}`}</div>
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                          <button type="button" onClick={() => { setEditorImage(url); setEditorSource("edit"); }} className="text-white cursor-pointer hover:text-amber-400">
+                            <span className="material-symbols-outlined text-xs">tune</span>
+                          </button>
+                          <button type="button" onClick={() => setEditUrlsList(p => p.filter((_, j) => j !== i))} className="text-white cursor-pointer hover:text-red-400">
+                            <span className="material-symbols-outlined text-xs">close</span>
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1">
-                  {/* URL paste */}
+                {editImageSource === "file" ? (
+                  <input type="file" accept="image/*" onChange={handleEditFileChange} className="w-full text-xs font-mono file:mr-3 file:py-1 file:px-3 file:border file:border-black file:bg-black file:text-white file:text-[8px] file:tracking-widest file:uppercase hover:file:opacity-90 file:cursor-pointer p-1 border border-[#e5e1d8] bg-white" />
+                ) : (
                   <div className="flex gap-2">
-                    <input 
-                      type="text"
-                      value={newEditImageInputUrl}
-                      onChange={(e) => setNewEditImageInputUrl(e.target.value)}
-                      placeholder="Paste external link to append..."
-                      className="flex-grow px-3 py-1.5 border border-[#e5e1d8] bg-[#faf9f6]/80 text-[10px] focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddEditImageUrl}
-                      className="px-3 bg-black hover:bg-neutral-800 text-white text-[9px] uppercase font-mono tracking-wider transition-colors cursor-pointer"
-                    >
-                      Add URL
+                    <input type="text" value={editNewUrl} onChange={e => setEditNewUrl(e.target.value)} placeholder="https://images.unsplash.com/..." className="field flex-1" />
+                    <button type="button" onClick={() => { if (editNewUrl.trim()) { setEditUrlsList(p => [...p, editNewUrl.trim()]); setEditNewUrl(""); } }} className="px-3 bg-black text-white font-mono text-[9px] uppercase cursor-pointer hover:opacity-90">
+                      Add
                     </button>
                   </div>
-
-                  {/* Bulk Multi-file input */}
-                  <div className="border border-[#e5e1d8] hover:border-black/50 transition-all p-1 bg-white flex items-center gap-2">
-                    <span className="material-symbols-outlined text-sm text-[#8b8780] pl-1">library_add</span>
-                    <span className="font-mono text-[8px] text-[#5f5e59] uppercase tracking-wider">BULK LOADER:</span>
-                    <input 
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      onChange={handleEditPhotoFilesChange}
-                      className="flex-grow text-[8px] font-mono file:py-1 file:px-2 file:border-0 file:bg-neutral-100 file:text-[8px] file:uppercase file:tracking-widest file:hover:bg-neutral-200 cursor-pointer text-[#8b8780]"
-                    />
-                  </div>
-                </div>
+                )}
               </div>
 
-              {/* Caption and Gemini curator assistance */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">CRITIQUE / DYNAMIC DIRECTIVES</label>
-                  <button
-                    type="button"
-                    onClick={handleGeminiEditImageAnalysis}
-                    disabled={editPhotoAnalyzing}
-                    className="font-mono text-[9px] uppercase tracking-widest text-black underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-                  >
-                    {editPhotoAnalyzing ? (
-                      <>
-                        <span className="material-symbols-outlined text-[11px] animate-spin block">progress_activity</span>
-                        <span>ANALYZING...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="material-symbols-outlined text-[12px] block">insights</span>
-                        <span>QUERY GEMINI PRO ANALYST</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <textarea 
-                  rows={3} 
-                  value={editPhotoCaption}
-                  onChange={(e) => setEditPhotoCaption(e.target.value)}
-                  placeholder="Composition details or critique monograph commentary..."
-                  className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
-                />
-              </div>
-
-              {/* Footer Controls */}
-              <div className="flex justify-end gap-3 pt-3 border-t border-[#e5e1d8]">
+              {/* Gemini analyze for edit */}
+              {editUrlsList.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setEditingPhoto(null)}
-                  className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200 border border-neutral-300 font-mono text-[9px] uppercase tracking-widest transition-colors cursor-pointer"
+                  disabled={editAnalyzing}
+                  onClick={() => handleAnalyzeImage(editUrlsList[0], "image/jpeg", setEditCaption, setEditAnalyzing)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e5e1d8] hover:border-amber-400 font-mono text-[8px] uppercase tracking-wider text-[#5f5e59] hover:text-amber-700 transition-all cursor-pointer disabled:opacity-50"
                 >
-                  Cancel
+                  {editAnalyzing ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> : <span className="material-symbols-outlined text-sm">auto_awesome</span>}
+                  {editAnalyzing ? "Analyzing..." : "Re-analyze with Gemini"}
                 </button>
-                <button
-                  type="submit"
-                  disabled={savingPhotoEdit}
-                  className="px-5 py-2 bg-black hover:bg-neutral-800 text-white font-mono text-[9px] uppercase tracking-widest transition-colors cursor-pointer"
-                >
-                  {savingPhotoEdit ? "SAVING REVISIONS..." : "COMMIT EXPLICIT REVISIONS"}
-                </button>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="label-sm">Title *</label>
+                  <input type="text" value={editTitle} onChange={e => setEditTitle(e.target.value)} required className="field" />
+                </div>
+                <div className="space-y-1">
+                  <label className="label-sm">Category</label>
+                  <select value={editCategory} onChange={e => setEditCategory(e.target.value)} className="field">
+                    {["Architecture","Landscape","Portrait","Conceptual","Minimalist","Street","Abstract"].map(c => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="label-sm">Location</label>
+                  <input type="text" value={editLocation} onChange={e => setEditLocation(e.target.value)} className="field" />
+                </div>
+                <div className="space-y-1">
+                  <label className="label-sm">Tags</label>
+                  <input type="text" value={editTags} onChange={e => setEditTags(e.target.value)} placeholder="film, architecture..." className="field font-mono" />
+                </div>
+                <div className="md:col-span-2 space-y-1">
+                  <label className="label-sm">Caption</label>
+                  <textarea rows={3} value={editCaption} onChange={e => setEditCaption(e.target.value)} className="field resize-none" />
+                </div>
               </div>
 
+              <div className="flex gap-3">
+                <button type="submit" disabled={savingEdit} className="flex-1 py-3 bg-black text-white font-mono text-[9px] uppercase tracking-widest cursor-pointer hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2">
+                  {savingEdit ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Saving...</> : <><span className="material-symbols-outlined text-sm">save</span> Save Changes</>}
+                </button>
+                <button type="button" onClick={() => setEditingPhoto(null)} className="px-5 py-3 border border-[#e5e1d8] font-mono text-[9px] uppercase tracking-widest text-[#5f5e59] hover:border-black cursor-pointer">
+                  Cancel
+                </button>
+              </div>
             </form>
-
           </div>
         </div>
-      )}
-
-      {/* Interactive In-Site Image Editor Overlay */}
-      {activeEditorImage && (
-        <ImageEditor
-          imageUrl={activeEditorImage}
-          onSave={(editedBase64) => {
-            if (activeEditorSource === "new") {
-              setPhotoBase64(editedBase64);
-              setPhotoUrl(editedBase64);
-              setPhotoUrlsList(prev => {
-                if (prev.length === 0) return [editedBase64];
-                const updated = [...prev];
-                updated[0] = editedBase64;
-                return updated;
-              });
-            } else if (activeEditorSource === "edit") {
-              setEditPhotoBase64(editedBase64);
-              setEditPhotoUrl(editedBase64);
-              setEditPhotoUrlsList(prev => {
-                if (prev.length === 0) return [editedBase64];
-                const updated = [...prev];
-                updated[0] = editedBase64;
-                return updated;
-              });
-            }
-            setActiveEditorImage(null);
-            setActiveEditorSource(null);
-          }}
-          onClose={() => {
-            setActiveEditorImage(null);
-            setActiveEditorSource(null);
-          }}
-        />
       )}
 
     </div>
