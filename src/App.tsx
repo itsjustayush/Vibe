@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Navigation, { Footer } from "./components/Navigation";
 import ProfileView from "./components/ProfileView";
 import StoriesView from "./components/StoriesView";
+import TermsView from "./components/TermsView";
 import GateKeeper from "./components/GateKeeper";
 import AdminConsole from "./components/AdminConsole";
 import SpiralLoader from "./components/SpiralLoader";
@@ -200,6 +201,19 @@ export default function App() {
                 </p>
                 <span className="font-mono text-[8px] text-black/40 block">Patanjali Sanskrit Sutra (1.2)</span>
               </div>
+            </motion.div>
+          )}
+
+          {/* Terms & Conditions Dedicated View defending copyright and avoiding plagiarism */}
+          {currentView === "terms" && (
+            <motion.div
+              key="terms"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <TermsView onNavigate={setCurrentView} />
             </motion.div>
           )}
 

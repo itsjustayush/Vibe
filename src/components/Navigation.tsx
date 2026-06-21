@@ -96,7 +96,7 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
         <button onClick={() => onNavigate("stories")} className="font-sans text-[11px] tracking-widest uppercase hover:text-black transition-colors">Journal</button>
         <button onClick={onOpenGate} className="font-sans text-[11px] tracking-widest uppercase hover:text-black transition-colors">Curator Gate</button>
         <button onClick={() => onNavigate("portfolio")} className="font-sans text-[11px] tracking-widest uppercase hover:text-black transition-colors">Portfolio</button>
-        <button onClick={() => alert(" Ayu.vibee Terms: High Art, Sharp Geometry. Non-commercial copyright reserved.")} className="font-sans text-[11px] tracking-widest uppercase hover:text-black transition-colors">Terms</button>
+        <button onClick={() => onNavigate("terms")} className="font-sans text-[11px] tracking-widest uppercase hover:text-black transition-colors">Terms</button>
       </div>
     </footer>
   );
