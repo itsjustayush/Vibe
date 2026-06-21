@@ -251,13 +251,15 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               Beyond the equations, I find balance through the lens. Visual storytelling is my meditative retreat from the binary world.
             </p>
           </div>
-          <button 
-            onClick={onOpenGate}
+          <a
+            href="https://instagram.com/ayu.vibee"
+            target="_blank"
+            rel="noopener noreferrer"
             className="mt-6 md:mt-0 px-4 py-2 bg-black text-white font-mono text-[10px] tracking-widest uppercase flex items-center gap-2 hover:bg-neutral-800 transition-all cursor-pointer"
           >
             <span className="material-symbols-outlined text-sm">photo_camera</span>
             <span>FOLLOW @AYU.VIBEE</span>
-          </button>
+          </a>
         </div>
 
         {/* Categories Tab Selector */}

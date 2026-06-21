@@ -3,6 +3,7 @@ import Navigation, { Footer } from "./components/Navigation";
 import ProfileView from "./components/ProfileView";
 import StoriesView from "./components/StoriesView";
 import TermsView from "./components/TermsView";
+import ContactView from "./components/ContactView";
 import GateKeeper from "./components/GateKeeper";
 import AdminConsole from "./components/AdminConsole";
 import SpiralLoader from "./components/SpiralLoader";
@@ -201,6 +202,19 @@ export default function App() {
                 </p>
                 <span className="font-mono text-[8px] text-black/40 block">Patanjali Sanskrit Sutra (1.2)</span>
               </div>
+            </motion.div>
+          )}
+
+          {/* Contact Page */}
+          {currentView === "contact" && (
+            <motion.div
+              key="contact"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <ContactView onNavigate={setCurrentView} />
             </motion.div>
           )}
 
