@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import SpiralLoader from "./SpiralLoader";
 import { auth, googleProvider } from "../firebase";
 import { signInWithPopup } from "firebase/auth";
+import AyuVibeeLogo from "./AyuVibeeLogo";
 
 interface GateKeeperProps {
   onUnlock: () => void;
@@ -60,10 +61,15 @@ export default function GateKeeper({ onUnlock, onClose }: GateKeeperProps) {
       {/* Main Lock Centerpiece */}
       <main className="max-w-md w-full mx-auto px-6 py-10 flex flex-col items-center">
         
+        {/* Brand logo centerpiece */}
+        <div className="mb-8">
+          <AyuVibeeLogo size="lg" theme="dark" />
+        </div>
+
         {/* Track Title */}
         <div className="text-center mb-6">
-          <span className="font-mono text-[10px] tracking-[0.4em] text-[#8b8780] uppercase block">AESTHETE SECURITY GATE</span>
-          <h1 className="font-serif text-3xl font-bold tracking-tight text-black mt-2 uppercase">PRIVATE ACCESS</h1>
+          <span className="font-mono text-[9px] tracking-[0.4em] text-[#8b8780] uppercase block">AESTHETE SECURITY GATE</span>
+          <h1 className="font-serif text-2xl font-bold tracking-tight text-black mt-2 uppercase">PRIVATE ACCESS</h1>
         </div>
 
         {/* Eye shaped centerpiece enclosing Spiral Loader */}

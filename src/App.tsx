@@ -5,6 +5,7 @@ import StoriesView from "./components/StoriesView";
 import GateKeeper from "./components/GateKeeper";
 import AdminConsole from "./components/AdminConsole";
 import SpiralLoader from "./components/SpiralLoader";
+import AyuVibeeLogo from "./components/AyuVibeeLogo";
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { getPhotosFromDB, getPostsFromDB, getRealInsights, trackInsightEncounter, AppInsights } from "./dbHelper";
@@ -101,9 +102,12 @@ export default function App() {
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="flex flex-col items-center"
         >
-          <SpiralLoader size={200} />
-          <p className="font-mono text-[9px] tracking-[0.25em] text-[#5f5e59] uppercase mt-6 animate-pulse">
-            CALIBRATING COGNITIVE EXTRAS... ESTABLISHING SSL PORT 3000
+          <div className="mb-8">
+            <AyuVibeeLogo size="xl" theme="dark" />
+          </div>
+          <SpiralLoader size={85} showText={false} />
+          <p className="font-mono text-[8px] tracking-[0.22em] text-[#8b8780] uppercase mt-8 animate-pulse text-center">
+            SYSTEM CONSOLE ONLINE — RESOLVING COGNITIVE CORE
           </p>
         </motion.div>
       </div>

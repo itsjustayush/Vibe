@@ -78,7 +78,7 @@ When natural asymmetry meets human-made symmetry, a dialogue begins. A solitary 
 // Database Functions
 export async function getPhotosFromDB(): Promise<Photo[]> {
   try {
-    const q = query(collection(db, "photos"), orderBy("createdAt", "desc"));
+    const q = query(collection(db, "photos"));
     const snapshot = await getDocs(q);
     const photos: Photo[] = [];
     snapshot.forEach((docSnap) => {
@@ -89,15 +89,23 @@ export async function getPhotosFromDB(): Promise<Photo[]> {
       // If collection is completely empty, return the predefined static set
       // to keep the museum-grade appearance hydrated, but write to Firestore in background
       // to initialize it!
-      DEFAULT_PHOTOS.forEach(async (photo) => {
+      DEFAULT_PHOTOS.forEach(async (photo, index) => {
         try {
-          await addDoc(collection(db, "photos"), photo);
+          await addDoc(collection(db, "photos"), { ...photo, position: index });
         } catch (e) {
           console.error("Error auto-seeding defaults", e);
         }
       });
-      return DEFAULT_PHOTOS;
+      return DEFAULT_PHOTOS.map((p, index) => ({ ...p, position: index }));
     }
+
+    // Sort by position ascending, fallback to createdAt descending if position undefined
+    photos.sort((a, b) => {
+      const posA = a.position !== undefined ? a.position : Number.MAX_SAFE_INTEGER;
+      const posB = b.position !== undefined ? b.position : Number.MAX_SAFE_INTEGER;
+      if (posA !== posB) return posA - posB;
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
     return photos;
   } catch (error) {
     console.warn("DB offline or error during photos load, using default assets:", error);
@@ -149,6 +157,13 @@ export async function deletePostFromDB(id: string): Promise<void> {
 
 export async function updatePhotoInDB(id: string, photo: Partial<Photo>): Promise<void> {
   await updateDoc(doc(db, "photos", id), photo);
+}
+
+export async function savePhotoOrderInDB(photoOrders: { id: string; position: number }[]): Promise<void> {
+  const promises = photoOrders.map((item) => {
+    return updateDoc(doc(db, "photos", item.id), { position: item.position });
+  });
+  await Promise.all(promises);
 }
 
 export async function updatePostInDB(id: string, post: Partial<Post>): Promise<void> {

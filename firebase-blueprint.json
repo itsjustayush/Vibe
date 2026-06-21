@@ -1,0 +1,114 @@
+{
+  "entities": {
+    "Photo": {
+      "title": "Photo",
+      "description": "A photographic portfolio asset curated by the artist.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the photo."
+        },
+        "caption": {
+          "type": "string",
+          "description": "A poetic description or caption."
+        },
+        "category": {
+          "type": "string",
+          "description": "Visual classification category."
+        },
+        "location": {
+          "type": "string",
+          "description": "Physical capture location coordinate."
+        },
+        "imageUrl": {
+          "type": "string",
+          "description": "Primary URL location."
+        },
+        "imageUrls": {
+          "type": "array",
+          "description": "All carousel images."
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp offset of creation."
+        },
+        "analyzedDescription": {
+          "type": "string",
+          "description": "Deconstructed visual description."
+        },
+        "tags": {
+          "type": "array",
+          "description": "Metadata collection categorization tags."
+        },
+        "position": {
+          "type": "number",
+          "description": "Explicit grid flow layout order index."
+        }
+      },
+      "required": ["title", "imageUrl", "createdAt"]
+    },
+    "Post": {
+      "title": "Post",
+      "description": "An editorial micro-journal blog story.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Journal story heading."
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "Subheading synopsis description."
+        },
+        "content": {
+          "type": "string",
+          "description": "Markdown body content narrative."
+        },
+        "category": {
+          "type": "string",
+          "description": "Content grouping track."
+        },
+        "readTime": {
+          "type": "string",
+          "description": "Estimated consumption period."
+        },
+        "coverUrl": {
+          "type": "string",
+          "description": "Header cover graphic asset URL."
+        },
+        "createdAt": {
+          "type": "number",
+          "description": "Timestamp offset of publication."
+        }
+      },
+      "required": ["title", "content", "createdAt"]
+    },
+    "Insights": {
+      "title": "Insights",
+      "description": "Global telemetry tracker.",
+      "type": "object",
+      "properties": {
+        "retinalEncounters": { "type": "number" },
+        "portfolioViews": { "type": "number" },
+        "storyViews": { "type": "number" },
+        "aboutViews": { "type": "number" },
+        "adminViews": { "type": "number" }
+      }
+    }
+  },
+  "firestore": {
+    "/photos/{photoId}": {
+      "schema": "Photo",
+      "description": "Artistic visual records collection."
+    },
+    "/posts/{postId}": {
+      "schema": "Post",
+      "description": "Editorial publication entries collection."
+    },
+    "/insights/{insightId}": {
+      "schema": "Insights",
+      "description": "Aggregate interaction counters telemetry."
+    }
+  }
+}

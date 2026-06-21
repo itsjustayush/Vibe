@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Photo } from "../types";
+import Carousel from "./Carousel";
 
 interface GalleryCardProps {
   photo: Photo;
@@ -13,67 +14,24 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
     ? photo.imageUrls
     : [photo.imageUrl].filter(Boolean);
 
-  const handleNext = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentSlide(prev => (prev + 1) % images.length);
-  };
-
-  const handlePrev = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrentSlide(prev => (prev - 1 + images.length) % images.length);
-  };
-
   return (
     <div 
       onClick={() => onClick(photo, currentSlide)}
       className="group cursor-pointer border border-[#e5e1d8] p-3 bg-white hover:border-black transition-all duration-300 hover:-translate-y-1 block"
     >
       <div className="relative overflow-hidden aspect-[16/10] bg-[#f7f4ed]">
-        <img 
-          src={images[currentSlide]} 
-          alt={photo.title}
-          className={`w-full h-full object-cover transition-all duration-700 ${
-            isNaturalColor 
-              ? "grayscale-0 contrast-100 hover:scale-[1.01]" 
-              : "grayscale contrast-110 group-hover:grayscale-0"
-          }`}
-          referrerPolicy="no-referrer"
+        <Carousel 
+          images={images}
+          isNaturalColor={isNaturalColor}
+          currentIndex={currentSlide}
+          onSelectImage={setCurrentSlide}
+          className="w-full h-full"
         />
         
         {/* Category Port Badge */}
         <div className="absolute top-2 left-2 px-2.5 py-1 bg-black text-[#f7f4ed] font-mono text-[9px] tracking-widest uppercase z-10">
           {photo.category}
         </div>
-
-        {/* Carousel indicator badge overlay */}
-        {images.length > 1 && (
-          <div className="absolute bottom-2 right-2 px-2 py-1 bg-black/75 backdrop-blur-sm text-white font-mono text-[8px] tracking-[0.2em] uppercase z-10 flex items-center gap-1.5 leading-none">
-            <span className="material-symbols-outlined text-[10px] leading-none">burst_mode</span>
-            <span>{currentSlide + 1} / {images.length} PHOTOS</span>
-          </div>
-        )}
-
-        {/* Arrow Overlays if multiple images */}
-        {images.length > 1 && (
-          <div className="absolute inset-0 flex justify-between items-center px-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 z-10">
-            <button
-              onClick={handlePrev}
-              type="button"
-              className="w-7 h-7 bg-white/90 hover:bg-white text-black hover:scale-105 flex items-center justify-center transition-all shadow-md cursor-pointer border border-[#e5e1d8] rounded-none"
-              title="Previous image"
-            >
-              <span className="material-symbols-outlined text-[11px] leading-none">arrow_back</span>
-            </button>
-            <button
-              onClick={handleNext}
-              type="button"
-              className="w-7 h-7 bg-white/90 hover:bg-white text-black hover:scale-105 flex items-center justify-center transition-all shadow-md cursor-pointer border border-[#e5e1d8] rounded-none"
-              title="Next image"
-            >
-              <span className="material-symbols-outlined text-[11px] leading-none">arrow_forward</span>
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="pt-4 flex justify-between items-start">
@@ -87,6 +45,20 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
           <p className="font-sans text-[11px] text-[#5f5e59] mt-2 leading-relaxed line-clamp-2">
             {photo.caption}
           </p>
+
+          {/* Tag Badges row */}
+          {photo.tags && photo.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5 mt-3">
+              {photo.tags.map((t, tid) => (
+                <span 
+                  key={tid} 
+                  className="px-2 py-0.5 bg-neutral-100 border border-neutral-200/60 text-[#5f5e59] font-mono text-[8px] uppercase tracking-wider"
+                >
+                  #{t.trim()}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="font-mono text-[9px] text-[#8b8780] whitespace-nowrap pt-1">
           {new Date(photo.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
@@ -112,15 +84,28 @@ interface ProfileViewProps {
 
 export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [activeImgIdx, setActiveImgIdx] = useState<number>(0);
   const [isNaturalColor, setIsNaturalColor] = useState<boolean>(true);
 
   const categories = ["All", "Landscape", "Architecture", "Portrait", "Conceptual"];
 
-  const filteredPhotos = selectedCategory === "All"
-    ? photos
-    : photos.filter(p => p.category.toLowerCase() === selectedCategory.toLowerCase());
+  // Extract all unique tags across all photos
+  const allTags = Array.from(
+    new Set(
+      photos
+        .flatMap((p) => p.tags || [])
+        .map((t) => t.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  );
+
+  const filteredPhotos = photos.filter((p) => {
+    const matchesCategory = selectedCategory === "All" || p.category.toLowerCase() === selectedCategory.toLowerCase();
+    const matchesTag = !selectedTag || (p.tags && p.tags.some(t => t.trim().toLowerCase() === selectedTag.toLowerCase()));
+    return matchesCategory && matchesTag;
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-10">
@@ -306,6 +291,39 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           </button>
         </div>
 
+        {/* Dynamic Tag Filter Section */}
+        {allTags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-10 items-center justify-start bg-[#fdfcf9] border border-[#e5e1d8] p-4">
+            <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mr-3 flex items-center gap-1.5 font-bold">
+              <span className="material-symbols-outlined text-[13px] leading-none">sell</span>
+              FILTER EXHIBIT BY TAG:
+            </span>
+            <button
+              onClick={() => setSelectedTag(null)}
+              className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
+                selectedTag === null
+                  ? "bg-black text-[#faf9f6] border-black font-semibold shadow-sm"
+                  : "bg-white text-[#5f5e59] border-[#e5e1d8] hover:border-black/50"
+              }`}
+            >
+              All Tags
+            </button>
+            {allTags.map((tag) => (
+              <button
+                key={tag}
+                onClick={() => setSelectedTag(tag)}
+                className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
+                  selectedTag === tag
+                    ? "bg-black text-[#faf9f6] border-black font-semibold shadow-sm"
+                    : "bg-white text-[#5f5e59] border-[#e5e1d8] hover:border-[#8b8780]"
+                }`}
+              >
+                #{tag}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Gallery Grid */}
         {filteredPhotos.length === 0 ? (
           <div className="border border-dashed border-[#e5e1d8] py-20 text-center">
@@ -360,70 +378,22 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 
                 {/* Left Column: Huge photographic frame with full carousel support */}
                 <div className="md:col-span-7 flex flex-col space-y-3 justify-center">
-                  <div className="bg-black/5 p-2 border border-[#e5e1d8] relative group overflow-hidden">
-                    <img 
-                      src={photoImages[activeImgIdx] || selectedPhoto.imageUrl} 
-                      alt={selectedPhoto.title}
-                      className="w-full h-auto max-h-[60vh] object-contain transition-all duration-300"
-                      referrerPolicy="no-referrer"
+                  <div className="bg-black/5 p-2 border border-[#e5e1d8] relative">
+                    <Carousel 
+                      images={photoImages}
+                      isNaturalColor={true}
+                      currentIndex={activeImgIdx}
+                      onSelectImage={setActiveImgIdx}
+                      className="w-full aspect-[16/10]"
                     />
-
-                    {/* Modal Carousel Arrow Overlays */}
-                    {photoImages.length > 1 && (
-                      <>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveImgIdx(prev => (prev - 1 + photoImages.length) % photoImages.length);
-                          }}
-                          type="button"
-                          className="absolute left-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/80 hover:bg-black text-[#f7f4ed] hover:scale-105 flex items-center justify-center transition-all shadow-lg cursor-pointer border border-[#faf9f6]/30 rounded-none z-20 opacity-0 group-hover:opacity-100 duration-300"
-                          title="Previous image"
-                        >
-                          <span className="material-symbols-outlined text-sm">arrow_back</span>
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setActiveImgIdx(prev => (prev + 1) % photoImages.length);
-                          }}
-                          type="button"
-                          className="absolute right-4 top-1/2 -translate-y-1/2 w-9 h-9 bg-black/80 hover:bg-black text-[#f7f4ed] hover:scale-105 flex items-center justify-center transition-all shadow-lg cursor-pointer border border-[#faf9f6]/30 rounded-none z-20 opacity-0 group-hover:opacity-100 duration-300"
-                          title="Next image"
-                        >
-                          <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                        </button>
-                      </>
-                    )}
                   </div>
 
                   <div className="flex justify-between items-center font-mono text-[10px] text-[#5f5e59] uppercase px-1">
                     <span>SYSTEM_REF: IMG_{Math.floor(1001 + (selectedPhoto.id?.charCodeAt(0) || 0) * 123) % 10000}.ARW</span>
-                    <div className="flex items-center gap-2">
-                      {photoImages.length > 1 && (
-                        <span className="bg-black text-[#f7f4ed] px-2 py-0.5 text-[8px] font-semibold tracking-wider">
-                          SLIDE {activeImgIdx + 1} OF {photoImages.length}
-                        </span>
-                      )}
+                    <div className="flex items-center gap-2 font-semibold">
                       <span>{selectedPhoto.category}</span>
                     </div>
                   </div>
-
-                  {/* Dot/bar indicators */}
-                  {photoImages.length > 1 && (
-                    <div className="flex justify-center gap-1.5 pt-1">
-                      {photoImages.map((_, dotIdx) => (
-                        <button
-                          key={dotIdx}
-                          onClick={() => setActiveImgIdx(dotIdx)}
-                          className={`w-1.5 h-1.5 rounded-none transition-all duration-300 cursor-pointer ${
-                            activeImgIdx === dotIdx ? "bg-black w-4" : "bg-neutral-350 hover:bg-neutral-500"
-                          }`}
-                          title={`Select photo ${dotIdx + 1}`}
-                        />
-                      ))}
-                    </div>
-                  )}
                 </div>
  
                 {/* Right Column: Curator description and analytical panels */}
@@ -440,6 +410,19 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                     <div className="py-4 border-y border-[#e5e1d8]">
                       <h5 className="font-mono text-[10px] tracking-widest text-black uppercase mb-2 font-semibold">CURATOR DIRECTIVE</h5>
                       <p className="font-sans text-[12px] leading-relaxed text-[#5f5e59]">{selectedPhoto.caption}</p>
+
+                      {selectedPhoto.tags && selectedPhoto.tags.length > 0 && (
+                        <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-dashed border-[#e5e1d8]">
+                          {selectedPhoto.tags.map((t, index) => (
+                            <span 
+                              key={index} 
+                              className="px-2 py-0.5 bg-neutral-100 border border-neutral-200/50 text-[#5f5e59] font-mono text-[8px] uppercase tracking-wider"
+                            >
+                              #{t.trim()}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
  
                     {selectedPhoto.analyzedDescription && (

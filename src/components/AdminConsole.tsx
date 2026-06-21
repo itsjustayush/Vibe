@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Photo, Post, AdminStats } from "../types";
-import { addPhotoToDB, addPostToDB, deletePhotoFromDB, deletePostFromDB, updatePhotoInDB, updatePostInDB, AppInsights } from "../dbHelper";
+import { addPhotoToDB, addPostToDB, deletePhotoFromDB, deletePostFromDB, updatePhotoInDB, updatePostInDB, AppInsights, savePhotoOrderInDB } from "../dbHelper";
 import SpiralLoader from "./SpiralLoader";
 import { compressImage, formatBytes } from "../utils/compressor";
+import ImageEditor from "./ImageEditor";
+import AyuVibeeLogo from "./AyuVibeeLogo";
 
 interface AdminConsoleProps {
   photos: Photo[];
@@ -14,6 +16,10 @@ interface AdminConsoleProps {
 
 export default function AdminConsole({ photos, posts, insights, onRefreshData, onLogout }: AdminConsoleProps) {
   const [activeTab, setActiveTab] = useState<"overview" | "library" | "narratives" | "video" | "settings">("overview");
+  
+  // Image Editor integration states
+  const [activeEditorImage, setActiveEditorImage] = useState<string | null>(null);
+  const [activeEditorSource, setActiveEditorSource] = useState<"new" | "edit" | null>(null);
   
   // Dynamic metrics calculated from live database data
   const totalAssets = photos.length + posts.length + 1200; // 1200 predefined original masterpieces
@@ -56,6 +62,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
   const [photoMime, setPhotoMime] = useState("image/jpeg");
   const [photoUrlsList, setPhotoUrlsList] = useState<string[]>([]);
   const [newImageInputUrl, setNewImageInputUrl] = useState("");
+  const [photoTags, setPhotoTags] = useState("");
   
   // Form states - Posts
   const [postTitle, setPostTitle] = useState("");
@@ -90,6 +97,8 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
   const [savingPhotoEdit, setSavingPhotoEdit] = useState(false);
   const [editPhotoUrlsList, setEditPhotoUrlsList] = useState<string[]>([]);
   const [newEditImageInputUrl, setNewEditImageInputUrl] = useState("");
+  const [editPhotoTags, setEditPhotoTags] = useState("");
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   const [compressing, setCompressing] = useState(false);
   const [lastOriginalSize, setLastOriginalSize] = useState<number | null>(null);
@@ -304,17 +313,18 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
 
   const handleStartEditPhoto = (photo: Photo) => {
     setEditingPhoto(photo);
-    setEditPhotoTitle(photo.title);
+    setEditPhotoTitle(photo.title || "");
     setEditPhotoCategory(photo.category || "Architecture");
     setEditPhotoLocation(photo.location || "");
     setEditPhotoCaption(photo.caption || "");
+    setEditPhotoTags(photo.tags ? photo.tags.join(", ") : "");
     const isBase64 = photo.imageUrl?.startsWith("data:");
     setEditPhotoImageSource(isBase64 ? "file" : "url");
     if (isBase64) {
-      setEditPhotoBase64(photo.imageUrl);
-      setEditPhotoUrl(photo.imageUrl);
+      setEditPhotoBase64(photo.imageUrl || "");
+      setEditPhotoUrl(photo.imageUrl || "");
     } else {
-      setEditPhotoUrl(photo.imageUrl);
+      setEditPhotoUrl(photo.imageUrl || "");
       setEditPhotoBase64("");
     }
     setEditPhotoUrlsList(photo.imageUrls && photo.imageUrls.length > 0 ? photo.imageUrls : [photo.imageUrl].filter(Boolean));
@@ -340,6 +350,10 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       return;
     }
 
+    const compiledTags = editPhotoTags
+      ? editPhotoTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
+      : [];
+
     setSavingPhotoEdit(true);
     try {
       if (editingPhoto.id) {
@@ -350,7 +364,8 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
           caption: editPhotoCaption || "A curated perspective.",
           imageUrl: mainUrl,
           imageUrls: finalUrlsList,
-          analyzedDescription: editPhotoCaption.slice(0, 200)
+          analyzedDescription: editPhotoCaption.slice(0, 200),
+          tags: compiledTags
         });
         setActionMessage("SUCCESS: Photographic asset updated successfully.");
       } else {
@@ -362,11 +377,14 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
           imageUrl: mainUrl,
           imageUrls: finalUrlsList,
           createdAt: Date.now(),
-          analyzedDescription: editPhotoCaption.slice(0, 200)
+          analyzedDescription: editPhotoCaption.slice(0, 200),
+          tags: compiledTags,
+          position: photos.length
         });
         setActionMessage("SUCCESS: Visual asset duplicated as standard cloud entry.");
       }
       setEditingPhoto(null);
+      setEditPhotoTags("");
       onRefreshData();
     } catch (error) {
       console.error(error);
@@ -426,6 +444,10 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       return;
     }
 
+    const compiledTags = photoTags
+      ? photoTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean)
+      : [];
+
     setPublishing(true);
     setActionMessage("");
     try {
@@ -437,7 +459,9 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
         imageUrl: mainUrl,
         imageUrls: finalUrlsList,
         createdAt: Date.now(),
-        analyzedDescription: photoCaption.slice(0, 200) // snippet
+        analyzedDescription: photoCaption.slice(0, 200), // snippet
+        tags: compiledTags,
+        position: photos.length
       });
 
       // Reset
@@ -447,6 +471,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       setPhotoUrl("");
       setPhotoBase64("");
       setPhotoUrlsList([]);
+      setPhotoTags("");
       
       setActionMessage("HIGHLIGHT: Asset published to live portfolio successfully.");
       onRefreshData();
@@ -493,11 +518,11 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
 
   const handleStartEditPost = (post: Post) => {
     setEditingPostId(post.id || null);
-    setPostTitle(post.title);
+    setPostTitle(post.title || "");
     setPostCategory(post.category || "");
     setPostCover(post.coverImage || "");
-    setPostContent(post.content);
-    setActionMessage(`EDIT MODE ACTIVE: Modifying Metaphysical Monograph "${post.title}"`);
+    setPostContent(post.content || "");
+    setActionMessage(`EDIT MODE ACTIVE: Modifying Metaphysical Monograph "${post.title || ""}"`);
   };
 
   const handleCancelEditPost = () => {
@@ -624,50 +649,110 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     }
   };
 
-  // Rearranging photo records globally
+  // Rearranging photo records globally using position fields
   const handleMovePhotoUp = async (index: number) => {
-    if (index === 0) return; // already at the peak of the order
-    const currentPhoto = photos[index];
-    const upperPhoto = photos[index - 1];
-    if (!currentPhoto.id || !upperPhoto.id) {
-      setActionMessage("ERROR: Structural IDs missing. Please refresh or save assets first.");
-      return;
-    }
+    if (index === 0) return;
+    const reorderedPhotos = [...photos];
+    const [movedItem] = reorderedPhotos.splice(index, 1);
+    reorderedPhotos.splice(index - 1, 0, movedItem);
 
-    // Swap their timestamps to swap order (orderBy: createdAt desc)
-    const tempTime = currentPhoto.createdAt;
+    const photoOrders = reorderedPhotos.map((photo, i) => {
+      if (!photo.id) {
+        throw new Error("Missing document ID on photo");
+      }
+      return {
+        id: photo.id,
+        position: i
+      };
+    });
+
     try {
-      setActionMessage("HIGHLIGHT: Re-arranging assets...");
-      await updatePhotoInDB(currentPhoto.id, { createdAt: upperPhoto.createdAt });
-      await updatePhotoInDB(upperPhoto.id, { createdAt: tempTime });
-      setActionMessage("SUCCESS: Photographic asset order adjusted.");
+      setActionMessage("HIGHLIGHT: Shifting element sequence...");
+      await savePhotoOrderInDB(photoOrders);
+      setActionMessage("SUCCESS: Element shifted higher.");
       onRefreshData();
     } catch (error) {
       console.error(error);
-      setActionMessage("ERROR: Swapping visual sequence failed.");
+      setActionMessage("ERROR: Failed to save position order.");
     }
   };
 
   const handleMovePhotoDown = async (index: number) => {
-    if (index === photos.length - 1) return; // already at the base of the order
-    const currentPhoto = photos[index];
-    const lowerPhoto = photos[index + 1];
-    if (!currentPhoto.id || !lowerPhoto.id) {
-      setActionMessage("ERROR: Structural IDs missing. Please refresh or save assets first.");
-      return;
-    }
+    if (index === photos.length - 1) return;
+    const reorderedPhotos = [...photos];
+    const [movedItem] = reorderedPhotos.splice(index, 1);
+    reorderedPhotos.splice(index + 1, 0, movedItem);
 
-    // Swap their timestamps to swap order (orderBy: createdAt desc)
-    const tempTime = currentPhoto.createdAt;
+    const photoOrders = reorderedPhotos.map((photo, i) => {
+      if (!photo.id) {
+        throw new Error("Missing document ID on photo");
+      }
+      return {
+        id: photo.id,
+        position: i
+      };
+    });
+
     try {
-      setActionMessage("HIGHLIGHT: Re-arranging assets...");
-      await updatePhotoInDB(currentPhoto.id, { createdAt: lowerPhoto.createdAt });
-      await updatePhotoInDB(lowerPhoto.id, { createdAt: tempTime });
-      setActionMessage("SUCCESS: Photographic asset order adjusted.");
+      setActionMessage("HIGHLIGHT: Shifting element sequence...");
+      await savePhotoOrderInDB(photoOrders);
+      setActionMessage("SUCCESS: Element shifted lower.");
       onRefreshData();
     } catch (error) {
       console.error(error);
-      setActionMessage("ERROR: Swapping visual sequence failed.");
+      setActionMessage("ERROR: Failed to save position order.");
+    }
+  };
+
+  // HTML5 Native Drag & Drop Handlers
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetIndex: number) => {
+    e.preventDefault();
+    const draggedIdxStr = e.dataTransfer.getData("text/plain");
+    const parsedDraggedIndex = draggedIdxStr !== "" ? parseInt(draggedIdxStr, 10) : draggedIndex;
+
+    if (parsedDraggedIndex === null || parsedDraggedIndex === undefined || parsedDraggedIndex === targetIndex) {
+      return;
+    }
+
+    const reorderedPhotos = [...photos];
+    const [draggedItem] = reorderedPhotos.splice(parsedDraggedIndex, 1);
+    reorderedPhotos.splice(targetIndex, 0, draggedItem);
+
+    const photoOrders = reorderedPhotos.map((photo, i) => {
+      if (!photo.id) {
+        throw new Error("Missing document ID on photo");
+      }
+      return {
+        id: photo.id,
+        position: i
+      };
+    });
+
+    try {
+      setActionMessage("HIGHLIGHT: Transmitting new layout sequence to Firestore...");
+      await savePhotoOrderInDB(photoOrders);
+      setActionMessage("SUCCESS: Gallery position hierarchy updated flawlessly.");
+      onRefreshData();
+    } catch (err) {
+      console.error(err);
+      setActionMessage("ERROR: Failed to save the reordered layout to database.");
+    } finally {
+      setDraggedIndex(null);
     }
   };
 
@@ -678,6 +763,11 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       <aside className="md:col-span-3 border-r border-[#e5e1d8] flex flex-col justify-between p-6 bg-[#fcfbfa]">
         <div className="space-y-8">
           
+          {/* Logo Brand Header */}
+          <div className="flex justify-center pb-6 border-b border-[#e5e1d8]">
+            <AyuVibeeLogo size="md" theme="dark" />
+          </div>
+
           {/* Curator Profile badge */}
           <div className="flex items-center space-x-3.5 pb-6 border-b border-[#e5e1d8]">
             <img 
@@ -924,13 +1014,13 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                       
                       {/* Image Preview Panel */}
                       <div className="border border-[#e5e1d8] p-3 bg-neutral-50 flex flex-col justify-between min-h-[220px]">
-                        <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mb-2 block">ASSET STREAM PREVIEW</span>
+                        <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mb-2 block animate-pulse">ASSET STREAM PREVIEW</span>
                         <div className="flex-grow flex items-center justify-center bg-white border border-[#e5e1d8] overflow-hidden p-2 aspect-[16/10] max-h-[170px]">
                           {(photoImageSource === "url" ? photoUrl : photoBase64) ? (
                             <img 
                               src={photoImageSource === "url" ? photoUrl : photoBase64} 
                               alt="Asset Preview" 
-                              className="max-h-full object-contain grayscale"
+                              className="max-h-full object-contain"
                               referrerPolicy="no-referrer"
                             />
                           ) : (
@@ -940,6 +1030,19 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                             </div>
                           )}
                         </div>
+                        {(photoImageSource === "url" ? photoUrl : photoBase64) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setActiveEditorImage(photoImageSource === "url" ? photoUrl : photoBase64);
+                              setActiveEditorSource("new");
+                            }}
+                            className="mt-2 w-full py-1.5 border border-[#eab308] bg-[#eab308]/15 hover:bg-[#eab308] hover:text-black text-amber-950 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold"
+                          >
+                            <span className="material-symbols-outlined text-xs">tune</span>
+                            LAUNCH CROP / FLIP / ROTATE / COPYRIGHT
+                          </button>
+                        )}
                       </div>
 
                       {/* File select controls */}
@@ -1024,6 +1127,17 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                           />
                         </div>
 
+                        <div className="space-y-1">
+                          <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block">TAGS / COLLECTIONS (COMMA-SEPARATED)</label>
+                          <input 
+                            type="text" 
+                            value={photoTags}
+                            onChange={(e) => setPhotoTags(e.target.value)}
+                            placeholder="film, vintage, architecture, banaras"
+                            className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-mono text-xs"
+                          />
+                        </div>
+
                       </div>
 
                     </div>
@@ -1041,7 +1155,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                         <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin">
                           {photoUrlsList.map((url, i) => (
                             <div key={i} className="relative w-28 h-24 border border-[#e5e1d8] bg-white p-1 flex-shrink-0 group overflow-hidden">
-                              <img src={url} className="w-full h-full object-cover grayscale" referrerPolicy="no-referrer" alt={`Exhibit ${i + 1}`} />
+                              <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt={`Exhibit ${i + 1}`} />
                               <div className="absolute top-1 left-1 bg-black text-[#f7f4ed] text-[8px] font-mono px-1 py-0.5 leading-none z-10 select-none">
                                 {i === 0 ? "COVER" : `#${i + 1}`}
                               </div>
@@ -1182,12 +1296,23 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                   </thead>
                   <tbody className="divide-y divide-[#e5e1d8]">
                     {photos.map((photo, index) => (
-                      <tr key={photo.id || index} className="hover:bg-neutral-50/50">
-                        <td className="p-4">
+                      <tr 
+                        key={photo.id || index} 
+                        draggable="true"
+                        onDragStart={(e) => handleDragStart(e, index)}
+                        onDragOver={(e) => handleDragOver(e, index)}
+                        onDragEnd={handleDragEnd}
+                        onDrop={(e) => handleDrop(e, index)}
+                        className={`transition-colors duration-150 cursor-grab active:cursor-grabbing select-none ${
+                          draggedIndex === index ? "bg-amber-200/40 opacity-70" : "hover:bg-neutral-50"
+                        }`}
+                      >
+                        <td className="p-4 flex items-center gap-3">
+                          <span className="material-symbols-outlined text-[#8b8780] text-sm select-none">drag_indicator</span>
                           <img 
                             src={photo.imageUrl} 
                             alt={photo.title}
-                            className="w-16 h-11 object-cover grayscale border border-[#e5e1d8]"
+                            className="w-16 h-11 object-cover border border-[#e5e1d8]"
                             referrerPolicy="no-referrer"
                           />
                         </td>
@@ -1627,13 +1752,13 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                 
                 {/* Image Preview */}
                 <div className="border border-[#e5e1d8] p-3 bg-neutral-50 flex flex-col justify-between min-h-[220px]">
-                  <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mb-2 block font-semibold">ASSET STREAM UPDATE PREVIEW</span>
+                  <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mb-2 block font-semibold animate-pulse">ASSET STREAM UPDATE PREVIEW</span>
                   <div className="flex-grow flex items-center justify-center bg-white border border-[#e5e1d8] overflow-hidden p-2 aspect-[16/10] max-h-[170px]">
                     {(editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64) ? (
                       <img 
                         src={editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64} 
                         alt="Edit Asset Preview" 
-                        className="max-h-full object-contain grayscale"
+                        className="max-h-full object-contain"
                         referrerPolicy="no-referrer"
                       />
                     ) : (
@@ -1643,6 +1768,19 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                       </div>
                     )}
                   </div>
+                  {(editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveEditorImage(editPhotoImageSource === "url" ? editPhotoUrl : editPhotoBase64);
+                        setActiveEditorSource("edit");
+                      }}
+                      className="mt-2 w-full py-1.5 border border-[#eab308] bg-[#eab308]/15 hover:bg-[#eab308] hover:text-black text-amber-950 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 flex items-center justify-center gap-1.5 font-semibold"
+                    >
+                      <span className="material-symbols-outlined text-xs">tune</span>
+                      LAUNCH CROP / FLIP / ROTATE / COPYRIGHT
+                    </button>
+                  )}
                 </div>
 
                 {/* File/Link Controls */}
@@ -1708,6 +1846,17 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                       className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-sans text-xs"
                     />
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="font-mono text-[9px] tracking-widest text-[#5f5e59] uppercase block font-semibold">TAGS / COLLECTIONS (COMMA-SEPARATED)</label>
+                    <input 
+                      type="text" 
+                      value={editPhotoTags}
+                      onChange={(e) => setEditPhotoTags(e.target.value)}
+                      placeholder="e.g. film, gold, street, landscape"
+                      className="w-full px-3 py-2 border border-[#e5e1d8] bg-[#faf9f6] focus:outline-none focus:border-black font-mono text-xs"
+                    />
+                  </div>
                 </div>
 
               </div>
@@ -1725,7 +1874,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                   <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin">
                     {editPhotoUrlsList.map((url, i) => (
                       <div key={i} className="relative w-28 h-24 border border-[#e5e1d8] bg-white p-1 flex-shrink-0 group overflow-hidden">
-                        <img src={url} className="w-full h-full object-cover grayscale" referrerPolicy="no-referrer" alt={`Edit Exhibit ${i + 1}`} />
+                        <img src={url} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt={`Edit Exhibit ${i + 1}`} />
                         <div className="absolute top-1 left-1 bg-black text-[#f7f4ed] text-[8px] font-mono px-1 py-0.5 leading-none z-10 select-none">
                           {i === 0 ? "COVER" : `#${i + 1}`}
                         </div>
@@ -1872,6 +2021,40 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
 
           </div>
         </div>
+      )}
+
+      {/* Interactive In-Site Image Editor Overlay */}
+      {activeEditorImage && (
+        <ImageEditor
+          imageUrl={activeEditorImage}
+          onSave={(editedBase64) => {
+            if (activeEditorSource === "new") {
+              setPhotoBase64(editedBase64);
+              setPhotoUrl(editedBase64);
+              setPhotoUrlsList(prev => {
+                if (prev.length === 0) return [editedBase64];
+                const updated = [...prev];
+                updated[0] = editedBase64;
+                return updated;
+              });
+            } else if (activeEditorSource === "edit") {
+              setEditPhotoBase64(editedBase64);
+              setEditPhotoUrl(editedBase64);
+              setEditPhotoUrlsList(prev => {
+                if (prev.length === 0) return [editedBase64];
+                const updated = [...prev];
+                updated[0] = editedBase64;
+                return updated;
+              });
+            }
+            setActiveEditorImage(null);
+            setActiveEditorSource(null);
+          }}
+          onClose={() => {
+            setActiveEditorImage(null);
+            setActiveEditorSource(null);
+          }}
+        />
       )}
 
     </div>

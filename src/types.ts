@@ -8,6 +8,8 @@ export interface Photo {
   imageUrls?: string[];
   createdAt: number;
   analyzedDescription?: string;
+  position?: number;
+  tags?: string[];
 }
 
 export interface Post {

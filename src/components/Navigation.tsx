@@ -1,4 +1,5 @@
 import React from "react";
+import AyuVibeeLogo from "./AyuVibeeLogo";
 
 interface NavigationProps {
   currentView: string;
@@ -12,13 +13,13 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
   return (
     <>
       {/* Top Navbar */}
-      <nav className="sticky top-0 z-40 w-full border-b border-[#e5e1d8] bg-[#f7f4ed]/90 backdrop-blur-md px-6 md:px-20 py-5 flex items-center justify-between">
-        {/* Brand */}
+      <nav className="sticky top-0 z-40 w-full border-b border-[#e5e1d8] bg-[#f7f4ed]/90 backdrop-blur-md px-6 md:px-20 py-4 flex items-center justify-between">
+        {/* Brand Logo replacing flat text */}
         <div 
           onClick={() => onNavigate("portfolio")} 
-          className="font-serif text-xl tracking-[0.2em] uppercase font-bold cursor-pointer hover:opacity-80 transition-opacity"
+          className="cursor-pointer hover:opacity-85 transition-opacity py-1"
         >
-          ayu.vibee
+          <AyuVibeeLogo size="sm" theme="dark" className="!items-start" />
         </div>
 
         {/* Links */}
@@ -84,9 +85,12 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) => void, onOpenGate: () => void }) {
   return (
     <footer className="w-full border-t border-[#e5e1d8] bg-[#f7f4ed] px-8 py-10 mt-20 flex flex-col md:flex-row justify-between items-center text-[#5f5e59]">
-      <div className="mb-4 md:mb-0 text-center md:text-left">
-        <p className="font-sans text-[10px] tracking-widest uppercase">© 2026 AYU.VIBEE PHOTOGRAPHY & EDITORIAL. ALL RIGHTS RESERVED.</p>
-        <p className="font-mono text-[9px] uppercase tracking-wider text-[#a09e99] mt-1">Sanskrit-Infused Archival Standards | Kolkata, India</p>
+      <div className="mb-6 md:mb-0 text-center md:text-left flex flex-col md:flex-row items-center md:items-start gap-5">
+        <AyuVibeeLogo size="sm" theme="dark" className="!items-center md:!items-start" />
+        <div className="flex flex-col justify-center">
+          <p className="font-sans text-[10px] tracking-widest uppercase">© 2026 AYU.VIBEE PHOTOGRAPHY & EDITORIAL. ALL RIGHTS RESERVED.</p>
+          <p className="font-mono text-[9px] uppercase tracking-wider text-[#a09e99] mt-1">Sanskrit-Infused Archival Standards | Kolkata, India</p>
+        </div>
       </div>
       <div className="flex flex-wrap justify-center gap-6">
         <button onClick={() => onNavigate("stories")} className="font-sans text-[11px] tracking-widest uppercase hover:text-black transition-colors">Journal</button>
