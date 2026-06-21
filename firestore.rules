@@ -1,24 +1,33 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Photos rules
+
+    // ── Photos ──────────────────────────────────────────────────────────
+    // Anyone can read (public gallery). Only authenticated admin can write.
     match /photos/{photoId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
     }
-    
-    // Posts rules
+
+    // ── Posts / Blog ─────────────────────────────────────────────────────
+    // Anyone can read (public blog). Only authenticated admin can write.
     match /posts/{postId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update, delete: if request.auth != null;
     }
-    
-    // Insights rules
+
+    // ── Insights / Analytics ─────────────────────────────────────────────
+    // Anyone can write (page-view counters fire for all visitors).
+    // Only authenticated admin can read analytics.
     match /insights/{insightId} {
-      allow read, write: if true;
+      allow read: if request.auth != null;
+      allow write: if true;
     }
-    
-    // Default fallback
+
+    // ── Everything else ───────────────────────────────────────────────────
+    // Deny by default — nothing else should be accessible.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
