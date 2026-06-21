@@ -1,0 +1,242 @@
+import React, { useState, useEffect } from "react";
+import Navigation, { Footer } from "./components/Navigation";
+import ProfileView from "./components/ProfileView";
+import StoriesView from "./components/StoriesView";
+import GateKeeper from "./components/GateKeeper";
+import AdminConsole from "./components/AdminConsole";
+import SpiralLoader from "./components/SpiralLoader";
+import { auth } from "./firebase";
+import { onAuthStateChanged, signOut, User } from "firebase/auth";
+import { getPhotosFromDB, getPostsFromDB, getRealInsights, trackInsightEncounter, AppInsights } from "./dbHelper";
+import { Photo, Post } from "./types";
+import { motion, AnimatePresence } from "motion/react";
+
+export default function App() {
+  const [currentView, setCurrentView] = useState<string>("portfolio");
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [showGate, setShowGate] = useState<boolean>(false);
+  const [adminUser, setAdminUser] = useState<User | null>(null);
+
+  // Live database records
+  const [photos, setPhotos] = useState<Photo[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [insights, setInsights] = useState<AppInsights | null>(null);
+
+  // Monitor Auth state via Firebase SDK
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setAdminUser(firebaseUser);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch collections from Firestore with dynamic seed automatic offsets
+  const loadDatabaseData = async () => {
+    try {
+      const dbPhotos = await getPhotosFromDB();
+      const dbPosts = await getPostsFromDB();
+      setPhotos(dbPhotos);
+      setPosts(dbPosts);
+      
+      const realInsights = await getRealInsights();
+      setInsights(realInsights);
+    } catch (err) {
+      console.error("Failed to load real firestore assets", err);
+    }
+  };
+
+  useEffect(() => {
+    if (initialLoading) return;
+    if (currentView === "portfolio") {
+      trackInsightEncounter("portfolioViews").then(() => {
+        getRealInsights().then(setInsights);
+      });
+    } else if (currentView === "stories") {
+      trackInsightEncounter("storyViews").then(() => {
+        getRealInsights().then(setInsights);
+      });
+    } else if (currentView === "about") {
+      trackInsightEncounter("aboutViews").then(() => {
+        getRealInsights().then(setInsights);
+      });
+    } else if (currentView === "admin") {
+      trackInsightEncounter("adminViews").then(() => {
+        getRealInsights().then(setInsights);
+      });
+    }
+  }, [currentView, initialLoading]);
+
+  useEffect(() => {
+    loadDatabaseData();
+
+    // Initial gorgeous simulation of the six-petal mathematical curve loader
+    const timer = setTimeout(() => {
+      setInitialLoading(false);
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setAdminUser(null);
+      setCurrentView("portfolio");
+    } catch (err) {
+      console.error("Signout error", err);
+    }
+  };
+
+  const handleUnlockGate = () => {
+    setShowGate(false);
+    setCurrentView("admin");
+  };
+
+  if (initialLoading) {
+    return (
+      <div className="fixed inset-0 z-50 bg-[#f7f4ed] flex flex-col items-center justify-center">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="flex flex-col items-center"
+        >
+          <SpiralLoader size={200} />
+          <p className="font-mono text-[9px] tracking-[0.25em] text-[#5f5e59] uppercase mt-6 animate-pulse">
+            CALIBRATING COGNITIVE EXTRAS... ESTABLISHING SSL PORT 3000
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-[#f7f4ed] overflow-x-hidden text-[#1a1a1a] flex flex-col justify-between selection:bg-neutral-900 selection:text-white">
+      
+      {/* Global Brand Header */}
+      <Navigation 
+        currentView={currentView}
+        onNavigate={setCurrentView}
+        onOpenGate={() => setShowGate(true)}
+        isAdmin={!!adminUser}
+        onLogout={handleLogout}
+      />
+
+      {/* Main Switchboard Canvas containing fluid page frames */}
+      <main className="flex-grow">
+        <AnimatePresence mode="wait">
+          
+          {/* Portfolio Grid Stream */}
+          {currentView === "portfolio" && (
+            <motion.div
+              key="portfolio"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <ProfileView 
+                photos={photos} 
+                onOpenGate={() => setShowGate(true)} 
+              />
+            </motion.div>
+          )}
+
+          {/* Editorial Magazine STORIES */}
+          {currentView === "stories" && (
+            <motion.div
+              key="stories"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            >
+              <StoriesView 
+                posts={posts} 
+                onNavigate={setCurrentView} 
+              />
+            </motion.div>
+          )}
+
+          {/* About / Curriculum detailed view */}
+          {currentView === "about" && (
+            <motion.div
+              key="about"
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -15 }}
+              transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+              className="max-w-2xl mx-auto px-6 py-16 space-y-12"
+            >
+              <div className="border-b border-[#e5e1d8] pb-8 text-center">
+                <span className="font-mono text-[9px] tracking-[0.3em] text-[#8b8780] uppercase">ACADEMIC PHILOSOPHY</span>
+                <h1 className="font-serif text-3xl md:text-5xl font-medium tracking-tight text-black mt-2">Editorial About</h1>
+              </div>
+
+              <section className="space-y-6 text-base font-serif text-[#1a1a1a] leading-relaxed">
+                <p className="indent-8">
+                  Welcome to the digital atelier. This space belongs to <strong className="font-bold">Ayush Bhattacharya</strong>, a student pursuing rigorous higher-secondary education integrated with deep foundational studies in system engineering and low-key film-based capture curation.
+                </p>
+                <p>
+                  As an aspiring engineer preparing for competitive admissions corridors, I spend major periods within standard mathematics blocks—deconstructing geometry, analyzing limits, and exploring kinematic trajectories of bodies in space. Visual design and photography remain a serene sanctuary for this analytical logic.
+                </p>
+                <blockquote className="border-l border-black pl-5 italic my-6 text-[15px] text-[#5f5e59]">
+                  "There is no true conflict between binary mechanics and artistic capture. Both seek underlying structures—the pure coordinates that make a physical or digital model feel balanced, stable, and true."
+                </blockquote>
+                <p>
+                  Built during early summer 2026, <span className="font-mono text-xs">ayu.vibee</span> leverages high-density modern Firebase servers for immediate archival sync, coupled with deep Gemini modeling frameworks to proxy real visual asset understanding on-the-fly.
+                </p>
+              </section>
+
+              {/* Sanskrit Accent Block */}
+              <div className="p-6 bg-black/[0.02] border border-black/10 text-center space-y-3">
+                <h5 className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase">MEDITATION OF CLARITY</h5>
+                <p className="font-serif italic text-lg text-black/80">
+                  "चित्तवृत्तिनिरोधः — Yoga is the quietude of visual fluctuating patterns."
+                </p>
+                <span className="font-mono text-[8px] text-black/40 block">Patanjali Sanskrit Sutra (1.2)</span>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Secure Admin Control Board */}
+          {currentView === "admin" && (
+            <motion.div
+              key="admin"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <AdminConsole 
+                photos={photos} 
+                posts={posts} 
+                insights={insights}
+                onRefreshData={loadDatabaseData}
+                onLogout={handleLogout}
+              />
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </main>
+
+      {/* General editorial footer */}
+      {currentView !== "admin" && (
+        <Footer 
+          onNavigate={setCurrentView} 
+          onOpenGate={() => setShowGate(true)} 
+        />
+      )}
+
+      {/* Hidden security gatekeeper lock overlay */}
+      {showGate && (
+        <GateKeeper 
+          onUnlock={handleUnlockGate} 
+          onClose={() => setShowGate(false)} 
+        />
+      )}
+
+    </div>
+  );
+}

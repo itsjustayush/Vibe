@@ -1,0 +1,9 @@
+{
+  "name": "ayu.vibee",
+  "description": "Minimalist Photography Portfolio, Editorial Blog, and Aesthete Admin Engine built with Gemini analysis and Firebase authentication.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
