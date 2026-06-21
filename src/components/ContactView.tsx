@@ -38,8 +38,8 @@ const SOCIALS = [
   {
     id: "email",
     label: "Email",
-    handle: "ayush@ayu.vibee",
-    url: "mailto:ayush@ayu.vibee",
+    handle: "info.cometlabs@gmail.com",
+    url: "mailto:info.cometlabs@gmail.com",
     desc: "Editorial collaborations, licensing & inquiries",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" className="w-6 h-6" stroke="currentColor" strokeWidth="1.5">
@@ -89,7 +89,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const mailto = `mailto:ayush@ayu.vibee?subject=${encodeURIComponent(formSubject || "Contact from ayu.vibee")}&body=${encodeURIComponent(`Name: ${formName}\nEmail: ${formEmail}\n\n${formMessage}`)}`;
+    const mailto = `mailto:info.cometlabs@gmail.com?subject=${encodeURIComponent(formSubject || "Contact from ayu.vibee")}&body=${encodeURIComponent(`Name: ${formName}\nEmail: ${formEmail}\n\n${formMessage}`)}`;
     window.open(mailto, "_blank");
     setSent(true);
     setTimeout(() => setSent(false), 5000);
@@ -180,7 +180,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
             {/* Contact details */}
             <div className="space-y-4 border-t border-[#e5e1d8] pt-6">
               {[
-                { label: "Primary Email", value: "ayush@ayu.vibee", href: "mailto:ayush@ayu.vibee" },
+                { label: "Primary Email", value: "info.cometlabs@gmail.com", href: "mailto:info.cometlabs@gmail.com" },
                 { label: "Location", value: "Kolkata, West Bengal, India" },
                 { label: "Timezone", value: "IST — UTC+5:30" },
                 { label: "Response window", value: "24–48 hours" },
