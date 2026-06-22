@@ -198,6 +198,26 @@ export async function getRealInsights(): Promise<AppInsights> {
   }
 }
 
+export async function incrementPhotoViews(photoId: string): Promise<void> {
+  try {
+    const docRef = doc(db, "insights", "photo_counts");
+    await setDoc(docRef, { [photoId]: increment(1) }, { merge: true });
+  } catch {
+    // silently fail — view tracking is non-critical
+  }
+}
+
+export async function getPhotoViewCounts(): Promise<Record<string, number>> {
+  try {
+    const docRef = doc(db, "insights", "photo_counts");
+    const docSnap = await getDoc(docRef);
+    if (!docSnap.exists()) return {};
+    return docSnap.data() as Record<string, number>;
+  } catch {
+    return {};
+  }
+}
+
 export async function trackInsightEncounter(metric: keyof AppInsights): Promise<void> {
   try {
     const docRef = doc(db, "insights", "aggregate");

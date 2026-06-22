@@ -345,11 +345,10 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 onClick={(p, slideIdx) => {
                   setSelectedPhoto(p);
                   setActiveImgIdx(slideIdx);
-                  try {
-                    import("../dbHelper").then(({ trackInsightEncounter }) => {
-                      trackInsightEncounter("portfolioViews");
-                    }).catch(() => {});
-                  } catch (e) {}
+                  import("../dbHelper").then(({ trackInsightEncounter, incrementPhotoViews }) => {
+                    trackInsightEncounter("portfolioViews");
+                    if (p.id) incrementPhotoViews(p.id);
+                  }).catch(() => {});
                 }}
               />
             ))}

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Photo, Post, AdminStats } from "../types";
 import {
   addPhotoToDB, addPostToDB, deletePhotoFromDB, deletePostFromDB,
-  updatePhotoInDB, updatePostInDB, AppInsights, savePhotoOrderInDB
+  updatePhotoInDB, updatePostInDB, AppInsights, savePhotoOrderInDB,
+  getPhotoViewCounts
 } from "../dbHelper";
 import SpiralLoader from "./SpiralLoader";
 import { compressImage, formatBytes } from "../utils/compressor";
@@ -35,6 +36,13 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     return () => clearInterval(id);
   }, []);
 
+  // ── Photo view counts ───────────────────────────────────────────────────────
+  useEffect(() => {
+    if (activeTab === "photos") {
+      getPhotoViewCounts().then(setViewCounts);
+    }
+  }, [activeTab]);
+
   // ── Toasts ─────────────────────────────────────────────────────────────────
   const toast = useCallback((type: Toast["type"], message: string) => {
     const id = ++toastId.current;
@@ -65,6 +73,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
   const [libraryView, setLibraryView] = useState<"grid" | "list">("grid");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [viewCounts, setViewCounts] = useState<Record<string, number>>({});
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [editingPhoto, setEditingPhoto] = useState<Photo | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -956,6 +965,13 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                         }`}>
                           {photo.id && selectedIds.has(photo.id) && <span className="text-white text-xs font-bold">✓</span>}
                         </div>
+                        {/* View count badge */}
+                        {photo.id && (viewCounts[photo.id] ?? 0) > 0 && (
+                          <div className="absolute top-2 right-2 bg-black/70 text-white font-mono text-[8px] tracking-widest px-1.5 py-0.5 flex items-center gap-1">
+                            <span className="material-symbols-outlined text-[10px] leading-none">visibility</span>
+                            {viewCounts[photo.id]}
+                          </div>
+                        )}
                         {/* Hover actions */}
                         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 translate-y-full group-hover:translate-y-0 transition-transform duration-200">
                           <p className="font-sans text-white text-[10px] font-medium truncate">{photo.title}</p>
@@ -984,6 +1000,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                           <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780]">Title</th>
                           <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] hidden md:table-cell">Category</th>
                           <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] hidden md:table-cell">Date</th>
+                          <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] hidden md:table-cell text-center">Views</th>
                           <th className="p-3 font-mono text-[8px] uppercase tracking-wider text-[#8b8780] text-center">Actions</th>
                         </tr>
                       </thead>
@@ -1015,6 +1032,12 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                             <td className="p-3 hidden md:table-cell font-mono text-[9px] uppercase text-[#5f5e59]">{photo.category}</td>
                             <td className="p-3 hidden md:table-cell font-mono text-[8px] text-[#8b8780]">
                               {new Date(photo.createdAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}
+                            </td>
+                            <td className="p-3 hidden md:table-cell text-center">
+                              <span className="inline-flex items-center gap-1 font-mono text-[9px] text-[#5f5e59]">
+                                <span className="material-symbols-outlined text-[11px] leading-none text-[#8b8780]">visibility</span>
+                                {photo.id ? (viewCounts[photo.id] ?? 0) : 0}
+                              </span>
                             </td>
                             <td className="p-3">
                               <div className="flex justify-center items-center gap-1">
