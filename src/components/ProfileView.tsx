@@ -125,7 +125,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             {/* Elegant thin caption */}
             <div className="mt-3.5 flex justify-between items-center font-mono text-[10px] tracking-widest text-[#5f5e59] uppercase px-1">
               <span>Ayush Bhattacharya</span>
-              <span>Kolkata, 2024</span>
+              <span>Kolkata</span>
             </div>
           </div>
           
