@@ -82,14 +82,24 @@ export default function Carousel({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -25 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className={`w-full h-full object-cover transition-all duration-700 ${
+            className={`w-full h-full object-cover transition-all duration-700 select-none ${
               isNaturalColor 
                 ? "grayscale-0 contrast-100" 
                 : "grayscale contrast-115 group-hover/carousel:grayscale-0"
             }`}
             referrerPolicy="no-referrer"
+            draggable={false}
+            onContextMenu={(e) => e.preventDefault()}
+            onDragStart={(e) => e.preventDefault()}
           />
         </AnimatePresence>
+        {/* Transparent shield — intercepts right-click / drag-save */}
+        <div
+          className="absolute inset-0 z-[5]"
+          onContextMenu={(e) => e.preventDefault()}
+          onDragStart={(e) => e.preventDefault()}
+          style={{ WebkitTouchCallout: "none", WebkitUserSelect: "none" }}
+        />
 
         {/* Gradient Edge Overlays */}
         <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />

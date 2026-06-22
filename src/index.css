@@ -105,3 +105,17 @@ body {
   opacity: 0.15;
 }
 
+/* ── Image Protection Layer ───────────────────────────────────────────────── */
+img {
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.gallery-protected {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  pointer-events: none;
+}
+
