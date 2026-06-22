@@ -120,7 +120,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             <img 
               src={ayushPortrait}
               alt="Ayush Bhattacharya"
-              className="w-full object-cover aspect-[4/5] opacity-[1]"
+              className="w-full object-cover aspect-[4/5] opacity-[1] grayscale"
             />
             {/* Elegant thin caption */}
             <div className="mt-3.5 flex justify-between items-center font-mono text-[10px] tracking-widest text-[#5f5e59] uppercase px-1">
