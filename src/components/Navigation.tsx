@@ -169,7 +169,7 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
             © {new Date().getFullYear()} AYU.VIBEE Photography & Editorial. All rights reserved.
           </p>
           <p className="font-mono text-[8px] uppercase tracking-wider text-[#c5c0b8]">
-            Sanskrit-Infused Archival Standards · Kolkata, India
+            Ayush· Kolkata, India
           </p>
         </div>
 
@@ -193,10 +193,10 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
           {/* Hidden admin gate — subtle */}
           <button
             onClick={onOpenGate}
-            className="font-mono text-[9px] tracking-widest uppercase text-[#c5c0b8] hover:text-[#8b8780] transition-colors cursor-pointer"
+            className="font-mono text-[9px] tracking-widest uppercase text-[#c5c0b8] hover:text-[#8b8780] transition-colors cursor-pointer text-center rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px] border-t-[#b0aba4] border-r-[#b0aba4] border-b-[#b0aba4] border-l-[#b0aba4] border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px]"
             title="Curator Gate"
           >
-            ⬡ Curator Gate
+            ⬡ Curator Gate [admins]
           </button>
         </div>
       </div>

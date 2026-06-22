@@ -23,7 +23,7 @@ export default function AyuVibeeLogo({ size = "md", theme = "dark", className = 
   const filterCls = theme === "light" ? "invert opacity-90 contrast-125" : "mix-blend-multiply";
 
   return (
-    <div className={`flex flex-col items-center select-none ${className}`}>
+    <div className={`flex flex-col select-none justify-start items-start ${className}`}>
       <img
         src="/src/assets/images/ayu_vibee_logo_1782050785435.jpg"
         alt="ayu.vibee typography logo"

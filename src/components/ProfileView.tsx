@@ -120,7 +120,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             <img 
               src={ayushPortrait}
               alt="Ayush Bhattacharya"
-              className="w-full object-cover aspect-[4/5]"
+              className="w-full object-cover aspect-[4/5] opacity-[1]"
             />
             {/* Elegant thin caption */}
             <div className="mt-3.5 flex justify-between items-center font-mono text-[10px] tracking-widest text-[#5f5e59] uppercase px-1">
@@ -220,9 +220,9 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               </div>
 
               <div>
-                <span className="font-mono text-[10px] tracking-widest uppercase text-[#8b8780] block mb-2">EXPLORING / LATERAL INTERESTS</span>
+                <span className="font-mono text-[10px] tracking-widest uppercase text-[#8b8780] block mb-2">EXPLORING / INTERESTS</span>
                 <div className="flex flex-wrap gap-2">
-                  {["Python Architecture", "Gemini Integrations", "Minimalist Design Theory", "Cinematic Arts"].map((interest) => (
+                  {["Coding", "Ai", "Minimalist Design Theory", "Photography"].map((interest) => (
                     <span key={interest} className="px-3 py-1 border border-black/20 text-black font-sans text-[10px] tracking-widest uppercase">
                       {interest}
                     </span>
@@ -234,9 +234,9 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
 
           <div className="p-4 bg-black/5 border border-black/10 mt-6 md:mt-0">
             <p className="font-serif italic text-xs leading-relaxed text-[#5f5e59]">
-              "Symmetry is the natural grammar of visual balance. Finding the matching equation in an elegant lens capture provides an unparalleled intellectual clarity."
+              There is a geometry and symmetry in the world. Photography is a way of finding that order, a way of looking at the chaos and finding a moment of perfect balance.
             </p>
-            <span className="font-mono text-[9px] tracking-widest text-black/40 block mt-2">— AYUSH BHATTACHARYA</span>
+            <span className="font-mono text-[9px] tracking-widest text-black/40 block mt-2">— TRENT PARKE</span>
           </div>
         </div>
       </section>
