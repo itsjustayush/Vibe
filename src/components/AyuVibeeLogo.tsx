@@ -1,4 +1,5 @@
 import React from "react";
+import logoSrc from "../assets/images/ayu_vibee_logo_1782050785435.jpg";
 
 interface AyuVibeeLogoProps {
   size?: "sm" | "md" | "lg" | "xl";
@@ -18,17 +19,14 @@ export default function AyuVibeeLogo({ size = "md", theme = "dark", className = 
     heightCls = "h-36";
   }
 
-  // mix-blend-multiply cleanly drops white background of the image
-  // rendering transparently over our off-white / light-cream background layers.
   const filterCls = theme === "light" ? "invert opacity-90 contrast-125" : "mix-blend-multiply";
 
   return (
     <div className={`flex flex-col select-none justify-start items-start ${className}`}>
       <img
-        src="/src/assets/images/ayu_vibee_logo_1782050785435.jpg"
+        src={logoSrc}
         alt="ayu.vibee typography logo"
         className={`${heightCls} object-contain transition-all duration-300 ${filterCls}`}
-        referrerPolicy="no-referrer"
       />
     </div>
   );

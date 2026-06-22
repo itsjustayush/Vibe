@@ -1,0 +1,107 @@
+2:19:08 PM: build-image version: cbbb2660d860fe70694043ec05851a3910a2bf39 (noble-new-builds)
+2:19:08 PM: buildbot version: 12b3c6f417c1b3440df5ed3246d8285499c647e3
+2:19:08 PM: Building without cache
+2:19:08 PM: Starting to prepare the repo for build
+2:19:08 PM: No cached dependencies found. Cloning fresh repo
+2:19:08 PM: git clone --filter=blob:none https://github.com/AyushCOMET/Vibe
+2:19:09 PM: Preparing Git Reference refs/heads/main
+2:19:10 PM: Installing dependencies
+2:19:10 PM: mise ~/.config/mise/config.toml tools: python@3.14.3
+2:19:10 PM: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+2:19:11 PM: mise ~/.config/mise/config.toml tools: go@1.26.2
+2:19:11 PM: Downloading and installing node v22.23.0...
+2:19:11 PM: Downloading https://nodejs.org/dist/v22.23.0/node-v22.23.0-linux-x64.tar.xz...
+2:19:11 PM: Computing checksum with sha256sum
+2:19:11 PM: Checksums matched!
+2:19:14 PM: Now using node v22.23.0 (npm v10.9.8)
+2:19:14 PM: Enabling Node.js Corepack
+2:19:14 PM: No npm workspaces detected
+2:19:14 PM: Installing npm packages using npm version 10.9.8
+2:19:20 PM: npm warn deprecated node-domexception@1.0.0: Use your platform's native DOMException instead
+2:19:20 PM: added 366 packages in 5s
+2:19:20 PM: npm packages installed
+2:19:20 PM: Successfully installed dependencies
+2:19:20 PM: Detected 1 framework(s)
+2:19:20 PM: "vite" at version "6.4.3"
+2:19:20 PM: Starting build script
+2:19:21 PM: Section completed: initializing
+2:19:22 PM: ​
+2:19:22 PM: Netlify Build                                                 
+2:19:22 PM: ────────────────────────────────────────────────────────────────
+2:19:22 PM: ​
+2:19:22 PM: ❯ Version
+2:19:22 PM:   @netlify/build 36.0.0
+2:19:22 PM: ​
+2:19:22 PM: ❯ Flags
+2:19:22 PM:   accountId: 6a2561ea19ec94a80685cc9b
+2:19:22 PM:   baseRelDir: true
+2:19:22 PM:   buildId: 6a38f7035e379f80a825096e
+2:19:22 PM:   deployId: 6a38f7035e379f80a8250970
+2:19:22 PM: ​
+2:19:22 PM: ❯ Current directory
+2:19:22 PM:   /opt/build/repo
+2:19:22 PM: ​
+2:19:22 PM: ❯ Config file
+2:19:22 PM:   No config file was defined: using default values.
+2:19:22 PM: ​
+2:19:22 PM: ❯ Context
+2:19:22 PM:   production
+2:19:22 PM: ​
+2:19:22 PM: Build command from Netlify app                                
+2:19:22 PM: ────────────────────────────────────────────────────────────────
+2:19:22 PM: ​
+2:19:22 PM: $ npm run build
+2:19:23 PM: > ayu.vibee@0.0.0 build
+2:19:23 PM: > vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs
+2:19:23 PM: vite v6.4.3 building for production...
+2:19:23 PM: transforming...
+2:19:26 PM: ✓ 624 modules transformed.
+2:19:26 PM: [plugin vite:reporter]
+2:19:26 PM: (!) /opt/build/repo/src/dbHelper.ts is dynamically imported by /opt/build/repo/src/components/ProfileView.tsx, /opt/build/repo/src/components/StoriesView.tsx but also statically imported by /opt/build/repo/src/App.tsx, /opt/build/repo/src/components/AdminConsole.tsx, dynamic import will not move module into another chunk.
+2:19:26 PM: 
+2:19:26 PM: rendering chunks...
+2:19:26 PM: computing gzip size...
+2:19:26 PM: dist/index.html                              0.99 kB │ gzip:   0.56 kB
+2:19:26 PM: dist/assets/ayush-portrait-CK9w79wi.png  1,695.33 kB
+2:19:26 PM: dist/assets/index-CZA5KkdW.css              60.20 kB │ gzip:  10.64 kB
+2:19:26 PM: dist/assets/index-B-vqWp3q.js            1,267.10 kB │ gzip: 349.26 kB
+2:19:26 PM: 
+2:19:26 PM: (!) Some chunks are larger than 500 kB after minification. Consider:
+2:19:26 PM: - Using dynamic import() to code-split the application
+2:19:26 PM: - Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+2:19:26 PM: - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+2:19:26 PM: ✓ built in 3.38s
+2:19:26 PM:   dist/server.cjs      7.0kb
+2:19:26 PM:   dist/server.cjs.map  9.3kb
+2:19:26 PM: ⚡ Done in 3ms
+2:19:26 PM: ​
+2:19:26 PM: (build.command completed in 3.8s)
+2:19:26 PM: ​
+2:19:26 PM: Deploy site                                                   
+2:19:26 PM: ────────────────────────────────────────────────────────────────
+2:19:26 PM: ​
+2:19:26 PM: Starting to deploy site from 'dist'
+2:19:26 PM: Calculating files to upload
+2:19:27 PM: Starting post processing
+2:19:27 PM: Skipping form detection
+2:19:27 PM: Post processing - header rules
+2:19:27 PM: Post processing - redirect rules
+2:19:27 PM: Post processing done
+2:19:27 PM: Section completed: postprocessing
+2:19:27 PM: Site is live ✨
+2:19:27 PM: 0 new file(s) to upload
+2:19:27 PM: 0 new function(s) to upload
+2:19:27 PM: Section completed: deploying
+2:19:27 PM: Site deploy was successfully initiated
+2:19:27 PM: ​
+2:19:27 PM: (Deploy site completed in 215ms)
+2:19:27 PM: ​
+2:19:27 PM: Netlify Build Complete                                        
+2:19:27 PM: ────────────────────────────────────────────────────────────────
+2:19:27 PM: ​
+2:19:27 PM: (Netlify Build completed in 4.2s)
+2:19:27 PM: Caching artifacts
+2:19:27 PM: Section completed: building
+2:19:28 PM: Uploading cache of size 67.0MB
+2:19:28 PM: Section completed: cleanup
+2:19:28 PM: Finished processing build request in 20.657s
