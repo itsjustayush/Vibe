@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Photo } from "../types";
 import Carousel from "./Carousel";
+import ayushPortrait from "../assets/images/ayush-portrait.png";
 
 interface GalleryCardProps {
   photo: Photo;
@@ -117,10 +118,9 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         <div className="md:col-span-5 flex flex-col space-y-4">
           <div className="relative border border-[#e5e1d8] p-2 bg-[#fdfcf9]">
             <img 
-              src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=800" 
+              src={ayushPortrait}
               alt="Ayush Bhattacharya"
-              className="w-full grayscale contrast-125 object-cover aspect-[4/5]"
-              referrerPolicy="no-referrer"
+              className="w-full object-cover aspect-[4/5]"
             />
             {/* Elegant thin caption */}
             <div className="mt-3.5 flex justify-between items-center font-mono text-[10px] tracking-widest text-[#5f5e59] uppercase px-1">
