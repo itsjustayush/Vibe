@@ -6,6 +6,8 @@ import TermsView from "./components/TermsView";
 import ContactView from "./components/ContactView";
 import GateKeeper from "./components/GateKeeper";
 import AdminConsole from "./components/AdminConsole";
+import AccessDeniedView from "./components/AccessDeniedView";
+import NotFoundView from "./components/NotFoundView";
 import SpiralLoader from "./components/SpiralLoader";
 import AyuVibeeLogo from "./components/AyuVibeeLogo";
 import { auth } from "./firebase";
@@ -19,6 +21,7 @@ export default function App() {
   const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [showGate, setShowGate] = useState<boolean>(false);
   const [adminUser, setAdminUser] = useState<User | null>(null);
+  const [deniedEmail, setDeniedEmail] = useState<string | undefined>(undefined);
 
   // Live database records
   const [photos, setPhotos] = useState<Photo[]>([]);
@@ -93,6 +96,12 @@ export default function App() {
   const handleUnlockGate = () => {
     setShowGate(false);
     setCurrentView("admin");
+  };
+
+  const handleDenied = (email: string) => {
+    setShowGate(false);
+    setDeniedEmail(email);
+    setCurrentView("access-denied");
   };
 
   if (initialLoading) {
@@ -250,6 +259,35 @@ export default function App() {
             </motion.div>
           )}
 
+          {/* Access Denied — wrong Google account */}
+          {currentView === "access-denied" && (
+            <motion.div
+              key="access-denied"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <AccessDeniedView
+                attemptedEmail={deniedEmail}
+                onReturn={() => { setDeniedEmail(undefined); setCurrentView("portfolio"); }}
+              />
+            </motion.div>
+          )}
+
+          {/* 404 — unknown view */}
+          {!["portfolio","stories","about","contact","terms","admin","access-denied"].includes(currentView) && (
+            <motion.div
+              key="not-found"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <NotFoundView onReturn={() => setCurrentView("portfolio")} />
+            </motion.div>
+          )}
+
         </AnimatePresence>
       </main>
 
@@ -264,7 +302,8 @@ export default function App() {
       {/* Hidden security gatekeeper lock overlay */}
       {showGate && (
         <GateKeeper 
-          onUnlock={handleUnlockGate} 
+          onUnlock={handleUnlockGate}
+          onDenied={handleDenied}
           onClose={() => setShowGate(false)} 
         />
       )}
