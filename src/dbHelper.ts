@@ -2,6 +2,8 @@ import { collection, getDocs, addDoc, deleteDoc, updateDoc, doc, query, orderBy,
 import { db } from "./firebase";
 import { Photo, Post } from "./types";
 
+const IMGBB_API_KEY = import.meta.env.VITE_IMGBB_API_KEY || "a1433a6a0a1aca4c53f8a8951e0c1bb3";
+
 // Seed data
 export const DEFAULT_PHOTOS: Photo[] = [
   {
@@ -130,6 +132,33 @@ export async function addPhotoToDB(photo: Omit<Photo, "id">): Promise<void> {
 
 export async function addPostToDB(post: Omit<Post, "id">): Promise<void> {
   await addDoc(collection(db, "posts"), post);
+}
+
+export async function uploadBase64Image(base64Data: string): Promise<string> {
+  if (!base64Data.startsWith("data:image")) {
+    return base64Data;
+  }
+
+  const cleanBase64 = base64Data.split(",")[1] || base64Data;
+  const formData = new FormData();
+  formData.append("image", cleanBase64);
+
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const result = await response.json();
+  if (!result.success || !result.data?.url) {
+    throw new Error(result.error?.message || "ImgBB upload failed");
+  }
+
+  return result.data.url;
+}
+
+export async function uploadImagesToImgBB(images: string[]): Promise<string[]> {
+  const uploads = images.map((image) => uploadBase64Image(image));
+  return await Promise.all(uploads);
 }
 
 export async function deletePhotoFromDB(id: string): Promise<void> {

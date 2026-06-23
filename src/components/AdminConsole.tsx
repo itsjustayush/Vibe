@@ -3,7 +3,7 @@ import { Photo, Post, AdminStats } from "../types";
 import {
   addPhotoToDB, addPostToDB, deletePhotoFromDB, deletePostFromDB,
   updatePhotoInDB, updatePostInDB, AppInsights, savePhotoOrderInDB,
-  getPhotoViewCounts
+  getPhotoViewCounts, uploadImagesToImgBB
 } from "../dbHelper";
 import SpiralLoader from "./SpiralLoader";
 import { compressImage, formatBytes } from "../utils/compressor";
@@ -171,13 +171,14 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     }
     setPublishing(true);
     try {
+      const uploadedUrls = await uploadImagesToImgBB(list);
       await addPhotoToDB({
         title: photoTitle.trim(),
         category: photoCategory,
         location: photoLocation || "Kolkata, India",
         caption: photoCaption || "A curated perspective.",
-        imageUrl: list[0],
-        imageUrls: list,
+        imageUrl: uploadedUrls[0],
+        imageUrls: uploadedUrls,
         createdAt: Date.now(),
         analyzedDescription: photoCaption.slice(0, 200),
         tags: photoTags ? photoTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) : [],
@@ -311,13 +312,14 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     }
     setSavingEdit(true);
     try {
+      const uploadedUrls = await uploadImagesToImgBB(list);
       await updatePhotoInDB(editingPhoto.id!, {
         title: editTitle.trim(),
         category: editCategory,
         location: editLocation || "Kolkata, India",
         caption: editCaption || "A curated perspective.",
-        imageUrl: list[0],
-        imageUrls: list,
+        imageUrl: uploadedUrls[0],
+        imageUrls: uploadedUrls,
         analyzedDescription: editCaption.slice(0, 200),
         tags: editTags ? editTags.split(",").map(t => t.trim().toLowerCase()).filter(Boolean) : [],
       });

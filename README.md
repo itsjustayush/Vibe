@@ -84,6 +84,7 @@
 | Backend | Express.js (Node) — serves Vite in dev, static in prod |
 | Database | Firebase Firestore (custom named database) |
 | Auth | Firebase Auth — Google OAuth only |
+| Image Hosting | ImgBB free-hosted image upload URLs |
 | AI | Google Gemini Pro (via `@google/genai`) |
 | Image Utils | Client-side compression (`browser-image-compression`) |
 | Icons | Google Material Symbols |
@@ -159,9 +160,12 @@ GEMINI_API_KEY=your_gemini_api_key_here
 
 # Admin restriction — only this email can pass the Curator Gate
 VITE_ADMIN_EMAIL=your.email@gmail.com
+
+# ImgBB image hosting key for upload storage
+VITE_IMGBB_API_KEY=your_imgbb_api_key_here
 ```
 
-> **Note:** Firebase config (API keys, project ID, etc.) is currently hardcoded in `src/firebase.ts` since it uses client-safe public credentials. For extra hygiene, these can also be moved to `VITE_` prefixed env vars.
+> **Note:** The project now uploads photos to ImgBB and saves only the returned public image URLs in Firestore. This avoids Firestore document size limits and does not require Firebase Storage for image assets.
 
 ---
 
@@ -181,6 +185,8 @@ The database uses three collections:
 ### 2. Deploy Security Rules
 
 Publish `firestore.rules` via **Firebase Console**:
+
+> Note: Photo image assets are now hosted on ImgBB, and Firestore only stores the returned `imageUrl` / `imageUrls` strings. This keeps documents small and avoids the 1 MB Firestore document size limit.
 
 1. Go to [console.firebase.google.com](https://console.firebase.google.com)
 2. Select your project → **Firestore Database**
