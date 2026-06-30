@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import { createServer as createHttpServer } from "http";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
 
@@ -136,10 +137,19 @@ async function startServer() {
     }
   });
 
+  // Create a single HTTP server so Vite's HMR WebSocket shares the same port
+  // as the Express app. This keeps everything on one port, which is required
+  // for the preview proxy to work reliably.
+  const httpServer = createHttpServer(app);
+
   // Vite integration
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        // Run HMR over the same HTTP server / port instead of a separate one.
+        hmr: { server: httpServer },
+      },
       appType: "spa",
     });
     app.use(vite.middlewares);
@@ -151,7 +161,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
