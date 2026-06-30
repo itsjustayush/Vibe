@@ -95,11 +95,14 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
   const [postTitle, setPostTitle] = useState("");
   const [postCategory, setPostCategory] = useState("");
   const [postCover, setPostCover] = useState("");
+  const [postCoverFile, setPostCoverFile] = useState<File | null>(null);
+  const [postCoverPreview, setPostCoverPreview] = useState("");
   const [postContent, setPostContent] = useState("");
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [publishingPost, setPublishingPost] = useState(false);
   const [storyAnalyzing, setStoryAnalyzing] = useState(false);
   const [blogTab, setBlogTab] = useState<"list" | "editor">("list");
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   // ── Video AI ───────────────────────────────────────────────────────────────
   const [videoBase64, setVideoBase64] = useState("");
@@ -120,7 +123,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
 
   // ─────────────────────────────────────────────────────────────────────────
   // IMAGE COMPRESSION HELPERS
-  // ─────────────────────────────────────────────────────────────────────────
+  // ────────────────────────────────���────────────────────────────────────────
   const compressFiles = async (files: File[]): Promise<string[]> => {
     setCompressing(true);
     try {
@@ -360,10 +363,24 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
   };
 
   // ─────────────────────────────────────────────────────────────────────────
+  // BLOG COVER IMAGE HANDLER
+  // ─────────────────────────────────────────────────────────────────────────
+  const handleBlogCoverFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPostCoverFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setPostCoverPreview(reader.result as string);
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
   // BLOG CRUD
   // ─────────────────────────────────────────────────────────────────────────
   const resetBlogForm = () => {
     setPostTitle(""); setPostCategory(""); setPostCover(""); setPostContent("");
+    setPostCoverFile(null); setPostCoverPreview("");
     setEditingPostId(null);
   };
 
@@ -372,6 +389,8 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     setPostTitle(post.title || "");
     setPostCategory(post.category || "");
     setPostCover(post.coverImage || "");
+    setPostCoverFile(null);
+    setPostCoverPreview("");
     setPostContent(post.content || "");
     setBlogTab("editor");
   };
@@ -395,11 +414,23 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     }
     setPublishingPost(true);
     try {
+      // Upload cover image to ImgBB if a file was selected
+      let finalCoverUrl = postCover || "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800";
+      if (postCoverFile || postCoverPreview) {
+        setUploadingCover(true);
+        const coverImageData = postCoverPreview || postCover;
+        if (coverImageData.startsWith("data:")) {
+          const uploadedUrls = await uploadImagesToImgBB([coverImageData]);
+          finalCoverUrl = uploadedUrls[0];
+        }
+        setUploadingCover(false);
+      }
+
       if (editingPostId) {
         await updatePostInDB(editingPostId, {
           title: postTitle.trim(), content: postContent,
           category: postCategory || "Urban Monographs",
-          coverImage: postCover || "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800"
+          coverImage: finalCoverUrl
         });
         toast("success", `"${postTitle}" updated.`);
         setEditingPostId(null);
@@ -407,7 +438,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
         await addPostToDB({
           title: postTitle.trim(), content: postContent,
           category: postCategory || "Urban Monographs",
-          coverImage: postCover || "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=800",
+          coverImage: finalCoverUrl,
           createdAt: Date.now(),
           analyzedThemes: ["Editorial", "Geometry", "Structural Analysis"],
         });
@@ -420,6 +451,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       toast("error", "Publish failed: " + err.message);
     } finally {
       setPublishingPost(false);
+      setUploadingCover(false);
     }
   };
 
@@ -1156,11 +1188,18 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                       <input type="text" value={postCategory} onChange={e => setPostCategory(e.target.value)} placeholder="e.g. Urban Monographs Vol. 5" className="field" />
                     </div>
                     <div className="md:col-span-2 space-y-1">
-                      <label className="label-sm">Cover Image URL</label>
-                      <div className="flex gap-2">
-                        <input type="text" value={postCover} onChange={e => setPostCover(e.target.value)} placeholder="https://images.unsplash.com/..." className="field flex-1" />
-                        {postCover && (
-                          <img src={postCover} alt="Cover" className="w-16 h-10 object-cover border border-[#e5e1d8]" referrerPolicy="no-referrer" />
+                      <label className="label-sm">Cover Image (Upload or URL)</label>
+                      <div className="space-y-2">
+                        <div className="flex gap-2">
+                          <input type="text" value={postCover} onChange={e => { setPostCover(e.target.value); setPostCoverFile(null); setPostCoverPreview(""); }} placeholder="https://images.unsplash.com/..." className="field flex-1" disabled={!!postCoverFile} />
+                          {(postCover || postCoverPreview) && (
+                            <img src={postCoverPreview || postCover} alt="Cover" className="w-16 h-10 object-cover border border-[#e5e1d8]" referrerPolicy="no-referrer" />
+                          )}
+                        </div>
+                        <div className="text-center font-mono text-[9px] text-[#8b8780] uppercase">— or upload —</div>
+                        <input type="file" accept="image/*" onChange={handleBlogCoverFile} disabled={uploadingCover} className="w-full text-xs font-mono file:mr-3 file:py-1.5 file:px-3 file:border file:border-black file:bg-black file:text-white file:text-[9px] file:tracking-widest file:uppercase hover:file:opacity-90 file:cursor-pointer p-1.5 border border-[#e5e1d8] bg-white disabled:opacity-50" />
+                        {postCoverFile && (
+                          <p className="font-mono text-[8px] text-emerald-600 uppercase">{postCoverFile.name} selected {uploadingCover ? "(uploading...)" : ""}</p>
                         )}
                       </div>
                     </div>
@@ -1193,8 +1232,8 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                     </div>
                   </div>
 
-                  <button type="submit" disabled={publishingPost} className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
-                    {publishingPost ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Saving...</> : <><span className="material-symbols-outlined text-sm">publish</span> {editingPostId ? "Update Post" : "Publish Post"}</>}
+                  <button type="submit" disabled={publishingPost || uploadingCover} className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
+                    {publishingPost || uploadingCover ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> {uploadingCover ? "Uploading cover..." : "Saving..."}</> : <><span className="material-symbols-outlined text-sm">publish</span> {editingPostId ? "Update Post" : "Publish Post"}</>}
                   </button>
                 </form>
               )}
