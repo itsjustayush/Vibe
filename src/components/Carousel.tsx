@@ -27,7 +27,7 @@ export default function Carousel({
 
   if (!validImages || validImages.length === 0) {
     return (
-      <div className="w-full aspect-[16/10] bg-[#faf9f6] flex flex-col items-center justify-center border border-[#e5e1d8] gap-2">
+      <div className="w-full min-h-[400px] bg-[#faf9f6] flex flex-col items-center justify-center border border-[#e5e1d8] gap-2">
         <span className="material-symbols-outlined text-[#e5e1d8] text-3xl">broken_image</span>
         <span className="font-mono text-[10px] tracking-widest text-[#8b8780] uppercase text-center px-4">
           {brokenImages.size > 0 ? "Image Link Expired or Deleted" : "No Captured Imagery Available"}
@@ -96,11 +96,10 @@ export default function Carousel({
             src={validImages[displayIndex]}
             alt={`Masterpiece view ${displayIndex + 1}`}
             onError={handleImageError}
-            initial={{ opacity: 0, x: 25 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -25 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className={`w-full h-full object-cover transition-all duration-700 select-none ${
+            className={`w-full h-full object-contain transition-all duration-700 select-none ${
               isNaturalColor 
                 ? "grayscale-0 contrast-100" 
                 : "grayscale contrast-115 group-hover/carousel:grayscale-0"
