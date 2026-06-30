@@ -110,6 +110,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
   const [isNaturalColor, setIsNaturalColor] = useState<boolean>(true);
   const [fullscreenPhoto, setFullscreenPhoto] = useState<Photo | null>(null);
   const [fullscreenImgIdx, setFullscreenImgIdx] = useState<number>(0);
+  const [immersivePhoto, setImmersivePhoto] = useState<Photo | null>(null);
+  const [immersiveImgIdx, setImmersiveImgIdx] = useState<number>(0);
 
   const categories = ["All", "Landscape", "Architecture", "Portrait", "Conceptual"];
 
@@ -388,9 +390,21 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 md:p-4">
             <div className="bg-[#f7f4ed] w-full max-w-6xl p-3 md:p-8 relative border-0 rounded-none shadow-2xl max-h-[95vh] overflow-y-auto">
               
-              {/* Fullscreen and Close buttons */}
+              {/* Immersive, Fullscreen and Close buttons */}
               <div className="absolute top-4 right-4 flex gap-2 z-10">
                 <button 
+                  type="button"
+                  onClick={() => {
+                    setImmersivePhoto(selectedPhoto);
+                    setImmersiveImgIdx(activeImgIdx);
+                  }}
+                  className="text-black hover:opacity-75 transition-opacity p-2 cursor-pointer"
+                  title="View immersive fullscreen"
+                >
+                  <span className="material-symbols-outlined text-2xl">monitor</span>
+                </button>
+                <button 
+                  type="button"
                   onClick={() => {
                     setFullscreenPhoto(selectedPhoto);
                     setFullscreenImgIdx(activeImgIdx);
@@ -401,6 +415,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                   <span className="material-symbols-outlined text-2xl">fullscreen</span>
                 </button>
                 <button 
+                  type="button"
                   onClick={() => setSelectedPhoto(null)}
                   className="text-black hover:opacity-75 transition-opacity p-2 cursor-pointer"
                   title="Close"
@@ -547,6 +562,99 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               <div>← → to navigate</div>
               <div>ESC to close</div>
             </div>
+          </div>
+        );
+      })()}
+
+      {/* Immersive Fullscreen Image Viewer - Maximum immersion */}
+      {(() => {
+        if (!immersivePhoto) return null;
+        const immersiveImages = immersivePhoto.imageUrls && immersivePhoto.imageUrls.length > 0
+          ? immersivePhoto.imageUrls
+          : [immersivePhoto.imageUrl].filter(Boolean);
+
+        return (
+          <div 
+            className="fixed inset-0 z-[70] bg-black flex flex-col items-center justify-center"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setImmersivePhoto(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setImmersivePhoto(null);
+              if (e.key === 'ArrowLeft' && immersiveImgIdx > 0) setImmersiveImgIdx(immersiveImgIdx - 1);
+              if (e.key === 'ArrowRight' && immersiveImgIdx < immersiveImages.length - 1) setImmersiveImgIdx(immersiveImgIdx + 1);
+            }}
+            tabIndex={0}
+            autoFocus
+          >
+            {/* Close Button - Top Right */}
+            <button 
+              type="button"
+              onClick={() => setImmersivePhoto(null)}
+              className="absolute top-4 right-4 text-white hover:opacity-60 transition-opacity z-10 p-2 cursor-pointer"
+              title="Close (ESC)"
+            >
+              <span className="material-symbols-outlined text-3xl">close</span>
+            </button>
+
+            {/* Main Image - Full Viewport */}
+            <div className="w-full h-full flex items-center justify-center px-2 md:px-0">
+              <img 
+                src={immersiveImages[immersiveImgIdx]}
+                alt={`Full image view ${immersiveImgIdx + 1}`}
+                className="max-w-full max-h-full object-contain"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).src = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%22100%22%3E%3Crect fill=%22%23333%22 width=%22100%22 height=%22100%22/%3E%3C/svg%3E';
+                }}
+              />
+            </div>
+
+            {/* Left Arrow */}
+            {immersiveImages.length > 1 && immersiveImgIdx > 0 && (
+              <button
+                type="button"
+                onClick={() => setImmersiveImgIdx(immersiveImgIdx - 1)}
+                className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:opacity-60 transition-opacity p-3 cursor-pointer z-10"
+                title="Previous image (← arrow)"
+              >
+                <span className="material-symbols-outlined text-4xl">arrow_back</span>
+              </button>
+            )}
+
+            {/* Right Arrow */}
+            {immersiveImages.length > 1 && immersiveImgIdx < immersiveImages.length - 1 && (
+              <button
+                type="button"
+                onClick={() => setImmersiveImgIdx(immersiveImgIdx + 1)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:opacity-60 transition-opacity p-3 cursor-pointer z-10"
+                title="Next image (→ arrow)"
+              >
+                <span className="material-symbols-outlined text-4xl">arrow_forward</span>
+              </button>
+            )}
+
+            {/* Bottom Info Bar - Minimal and elegant */}
+            <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent px-4 py-6 flex justify-between items-end text-white">
+              <div className="flex flex-col gap-1">
+                <h2 className="font-serif text-lg md:text-2xl">{immersivePhoto.title}</h2>
+                <p className="font-mono text-xs md:text-sm text-white/70">{immersivePhoto.location}</p>
+              </div>
+              <span className="font-mono text-xs md:text-sm text-white/70">{immersiveImgIdx + 1} / {immersiveImages.length}</span>
+            </div>
+
+            {/* Keyboard Hints */}
+            <div className="absolute top-4 left-4 text-white/60 font-mono text-xs space-y-1 hidden md:block">
+              <div>← → navigate</div>
+              <div>ESC close</div>
+            </div>
+
+            {/* Mobile-specific hint */}
+            {immersiveImages.length > 1 && (
+              <div className="absolute bottom-4 left-4 text-white/60 font-mono text-[10px] md:hidden">
+                Tap arrows to browse
+              </div>
+            )}
           </div>
         );
       })()}
