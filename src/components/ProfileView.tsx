@@ -95,6 +95,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [activeImgIdx, setActiveImgIdx] = useState<number>(0);
   const [isNaturalColor, setIsNaturalColor] = useState<boolean>(true);
+  const [fullscreenPhoto, setFullscreenPhoto] = useState<Photo | null>(null);
+  const [fullscreenImgIdx, setFullscreenImgIdx] = useState<number>(0);
 
   const categories = ["All", "Landscape", "Architecture", "Portrait", "Conceptual"];
 
@@ -373,13 +375,26 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 md:p-4">
             <div className="bg-[#f7f4ed] w-full max-w-6xl p-3 md:p-8 relative border-0 rounded-none shadow-2xl max-h-[95vh] overflow-y-auto">
               
-              {/* Close button with high aesthetic focus styling */}
-              <button 
-                onClick={() => setSelectedPhoto(null)}
-                className="absolute top-4 right-4 text-black hover:opacity-75 transition-opacity z-10 p-2 cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-2xl">close</span>
-              </button>
+              {/* Fullscreen and Close buttons */}
+              <div className="absolute top-4 right-4 flex gap-2 z-10">
+                <button 
+                  onClick={() => {
+                    setFullscreenPhoto(selectedPhoto);
+                    setFullscreenImgIdx(activeImgIdx);
+                  }}
+                  className="text-black hover:opacity-75 transition-opacity p-2 cursor-pointer"
+                  title="View in fullscreen"
+                >
+                  <span className="material-symbols-outlined text-2xl">fullscreen</span>
+                </button>
+                <button 
+                  onClick={() => setSelectedPhoto(null)}
+                  className="text-black hover:opacity-75 transition-opacity p-2 cursor-pointer"
+                  title="Close"
+                >
+                  <span className="material-symbols-outlined text-2xl">close</span>
+                </button>
+              </div>
  
               <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8 mt-2 md:mt-4">
                 
@@ -458,6 +473,48 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
  
               </div>
  
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Fullscreen Carousel Modal */}
+      {(() => {
+        if (!fullscreenPhoto) return null;
+        const fullscreenImages = fullscreenPhoto.imageUrls && fullscreenPhoto.imageUrls.length > 0
+          ? fullscreenPhoto.imageUrls
+          : [fullscreenPhoto.imageUrl].filter(Boolean);
+
+        return (
+          <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-4">
+            {/* Fullscreen Close Button */}
+            <button 
+              onClick={() => setFullscreenPhoto(null)}
+              className="absolute top-6 right-6 text-white hover:opacity-75 transition-opacity z-10 p-2 cursor-pointer"
+              title="Exit fullscreen"
+            >
+              <span className="material-symbols-outlined text-3xl">close</span>
+            </button>
+
+            {/* Fullscreen Carousel */}
+            <div className="w-full h-full flex items-center justify-center">
+              <Carousel 
+                images={fullscreenImages}
+                isNaturalColor={true}
+                currentIndex={fullscreenImgIdx}
+                onSelectImage={setFullscreenImgIdx}
+                className="w-full h-full"
+              />
+            </div>
+
+            {/* Bottom Info Bar */}
+            <div className="absolute bottom-6 left-6 right-6 flex justify-between items-center text-white font-mono text-sm">
+              <div className="flex gap-4">
+                <span>{fullscreenPhoto.title}</span>
+                <span className="opacity-60">•</span>
+                <span className="opacity-60">{fullscreenPhoto.location}</span>
+              </div>
+              <span className="opacity-60">{fullscreenImgIdx + 1} / {fullscreenImages.length}</span>
             </div>
           </div>
         );

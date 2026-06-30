@@ -839,6 +839,20 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5">
                             <button
                               type="button"
+                              onClick={() => {
+                                if (i !== 0) {
+                                  const newList = [...photoUrlsList];
+                                  [newList[0], newList[i]] = [newList[i], newList[0]];
+                                  setPhotoUrlsList(newList);
+                                }
+                              }}
+                              className={`cursor-pointer ${i === 0 ? "opacity-30" : "text-white hover:text-yellow-400"}`}
+                              title={i === 0 ? "Already thumbnail" : "Make thumbnail"}
+                            >
+                              <span className="material-symbols-outlined text-sm">image_search</span>
+                            </button>
+                            <button
+                              type="button"
                               onClick={() => { setEditorImage(url); setEditorSource("new"); }}
                               className="text-white cursor-pointer hover:text-amber-400"
                               title="Edit"
@@ -1301,7 +1315,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
 
           {/* ═══════════════════════════════════════════════════════════════
               TAB: SETTINGS
-          ═══════════════════════════════════════════════════════════════ */}
+          ═════════════════════════════════════���═════════════════════════ */}
           {activeTab === "settings" && (
             <div className="space-y-6 max-w-2xl">
               <div>
