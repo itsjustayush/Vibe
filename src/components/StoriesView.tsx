@@ -9,8 +9,11 @@ interface StoriesViewProps {
 
 export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
   if (selectedPost) {
+    const coverImageBroken = brokenImages.has(selectedPost.coverImage);
+    
     return (
       <div className="max-w-3xl mx-auto px-6 py-10">
         
@@ -25,12 +28,20 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
 
         {/* Narrative Cover Frame */}
         <div className="relative border border-[#e5e1d8] p-2 bg-white mb-10">
-          <img 
-            src={selectedPost.coverImage} 
-            alt={selectedPost.title}
-            className="w-full grayscale contrast-110 object-cover aspect-[21/9]"
-            referrerPolicy="no-referrer"
-          />
+          {coverImageBroken ? (
+            <div className="w-full aspect-[21/9] bg-[#faf9f6] flex flex-col items-center justify-center border border-dashed border-[#e5e1d8] gap-3">
+              <span className="material-symbols-outlined text-[#8b8780] text-4xl">broken_image</span>
+              <span className="font-mono text-[10px] tracking-widest text-[#8b8780] uppercase text-center px-4">Cover Image Link Expired</span>
+            </div>
+          ) : (
+            <img 
+              src={selectedPost.coverImage} 
+              alt={selectedPost.title}
+              className="w-full grayscale contrast-110 object-cover aspect-[21/9]"
+              referrerPolicy="no-referrer"
+              onError={() => setBrokenImages(prev => new Set([...prev, selectedPost.coverImage]))}
+            />
+          )}
           <div className="absolute top-4 left-4 px-3 py-1 bg-black text-[#f7f4ed] font-mono text-[9px] tracking-widest uppercase">
             {selectedPost.category}
           </div>
@@ -133,12 +144,19 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
                 {/* Visual Thumbnail */}
                 <div className="md:col-span-5 relative border border-[#e5e1d8] p-2 bg-white flex flex-col justify-center">
                   <div className="aspect-[16/10] bg-[#fdfcf9] overflow-hidden">
-                    <img 
-                      src={post.coverImage} 
-                      alt={post.title} 
-                      className="w-full h-full object-cover grayscale group-hover:grayscale-0 cubic-transition duration-700"
-                      referrerPolicy="no-referrer"
-                    />
+                    {brokenImages.has(post.coverImage) ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-[#faf9f6] border border-dashed border-[#e5e1d8]">
+                        <span className="material-symbols-outlined text-[#8b8780] text-2xl">image_not_supported</span>
+                      </div>
+                    ) : (
+                      <img 
+                        src={post.coverImage} 
+                        alt={post.title} 
+                        className="w-full h-full object-cover grayscale group-hover:grayscale-0 cubic-transition duration-700"
+                        referrerPolicy="no-referrer"
+                        onError={() => setBrokenImages(prev => new Set([...prev, post.coverImage]))}
+                      />
+                    )}
                   </div>
                 </div>
 

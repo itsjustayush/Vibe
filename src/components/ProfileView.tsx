@@ -11,9 +11,15 @@ interface GalleryCardProps {
 
 function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const images = photo.imageUrls && photo.imageUrls.length > 0
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
+  const allImages = photo.imageUrls && photo.imageUrls.length > 0
     ? photo.imageUrls
     : [photo.imageUrl].filter(Boolean);
+  const images = allImages.filter(img => !brokenImages.has(img));
+
+  const handleImageError = (url: string) => {
+    setBrokenImages(prev => new Set([...prev, url]));
+  };
 
   return (
     <div 

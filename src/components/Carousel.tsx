@@ -17,13 +17,21 @@ export default function Carousel({
   currentIndex
 }: CarouselProps) {
   const [internalIndex, setInternalIndex] = useState(0);
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
   const activeIndex = currentIndex !== undefined ? currentIndex : internalIndex;
   const touchStartX = useRef<number | null>(null);
 
-  if (!images || images.length === 0) {
+  // Filter out broken images
+  const validImages = images.filter(img => !brokenImages.has(img));
+  const displayIndex = Math.min(activeIndex, validImages.length - 1);
+
+  if (!validImages || validImages.length === 0) {
     return (
-      <div className="w-full aspect-[16/10] bg-[#faf9f6] flex items-center justify-center border border-[#e5e1d8]">
-        <span className="font-mono text-[10px] tracking-widest text-[#8b8780] uppercase">No Captured Imagery Available</span>
+      <div className="w-full aspect-[16/10] bg-[#faf9f6] flex flex-col items-center justify-center border border-[#e5e1d8] gap-2">
+        <span className="material-symbols-outlined text-[#e5e1d8] text-3xl">broken_image</span>
+        <span className="font-mono text-[10px] tracking-widest text-[#8b8780] uppercase text-center px-4">
+          {brokenImages.size > 0 ? "Image Link Expired or Deleted" : "No Captured Imagery Available"}
+        </span>
       </div>
     );
   }
@@ -65,6 +73,15 @@ export default function Carousel({
     touchStartX.current = null;
   };
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    const failedUrl = (e.target as HTMLImageElement).src;
+    setBrokenImages(prev => new Set([...prev, failedUrl]));
+    // Skip to next valid image if available
+    if (validImages.length > 0) {
+      handleIndexChange(displayIndex + 1);
+    }
+  };
+
   return (
     <div 
       className={`relative overflow-hidden group/carousel ${className}`}
@@ -75,9 +92,10 @@ export default function Carousel({
         {/* Animated Slide Frame */}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.img
-            key={`${activeIndex}-${images[activeIndex]}`}
-            src={images[activeIndex]}
-            alt={`Masterpiece view ${activeIndex + 1}`}
+            key={`${displayIndex}-${validImages[displayIndex]}`}
+            src={validImages[displayIndex]}
+            alt={`Masterpiece view ${displayIndex + 1}`}
+            onError={handleImageError}
             initial={{ opacity: 0, x: 25 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -25 }}
@@ -105,7 +123,7 @@ export default function Carousel({
         <div className="absolute inset-x-0 bottom-0 h-1/4 bg-gradient-to-t from-black/50 to-transparent pointer-events-none z-10" />
 
         {/* Interactive Desktop Arrows */}
-        {images.length > 1 && (
+        {validImages.length > 1 && (
           <div className="absolute inset-0 flex justify-between items-center px-4 opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300 z-20">
             <button
               onClick={handlePrev}
@@ -129,16 +147,16 @@ export default function Carousel({
         )}
 
         {/* Dynamic Badge/Count */}
-        {images.length > 1 && (
+        {validImages.length > 1 && (
           <div className="absolute bottom-3 left-3 bg-black/85 backdrop-blur-sm text-[#f7f4ed] font-mono text-[8px] tracking-[0.25em] py-1.5 px-3 z-20 uppercase leading-none border border-neutral-700">
-            {activeIndex + 1} / {images.length} PREVIEWS
+            {displayIndex + 1} / {validImages.length} PREVIEWS {brokenImages.size > 0 && `(${brokenImages.size} UNAVAILABLE)`}
           </div>
         )}
 
         {/* Subtle Horizontal Progression Indicators */}
-        {images.length > 1 && (
+        {validImages.length > 1 && (
           <div className="absolute bottom-3 right-3 flex gap-1.5 z-20">
-            {images.map((_, idx) => (
+            {validImages.map((_, idx) => (
               <button
                 key={idx}
                 type="button"
@@ -147,7 +165,7 @@ export default function Carousel({
                   handleIndexChange(idx);
                 }}
                 className={`w-2 h-1.5 transition-all duration-300 cursor-pointer ${
-                  activeIndex === idx 
+                  displayIndex === idx 
                     ? "bg-white w-4" 
                     : "bg-white/40 hover:bg-white/70"
                 }`}
