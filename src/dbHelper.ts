@@ -126,7 +126,52 @@ export async function getPostsFromDB(): Promise<Post[]> {
   }
 }
 
+function isValidImageUrl(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || value.startsWith("data:image")) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+const MAX_IMAGE_URL_LENGTH = 1000;
+
+function validatePhotoPayload(photo: Omit<Photo, "id">) {
+  if (!isValidImageUrl(photo.imageUrl) || photo.imageUrl.length > MAX_IMAGE_URL_LENGTH) {
+    throw new Error("Invalid photo.imageUrl: only HTTP(S) URLs are allowed.");
+  }
+
+  if (photo.imageUrls && !Array.isArray(photo.imageUrls)) {
+    throw new Error("Invalid photo.imageUrls: must be an array of URLs.");
+  }
+
+  if (photo.imageUrls && photo.imageUrls.some((url) => !isValidImageUrl(url) || url.length > MAX_IMAGE_URL_LENGTH)) {
+    throw new Error("Invalid photo.imageUrls: all entries must be HTTP(S) URLs.");
+  }
+}
+
+function validatePhotoUpdatePayload(photo: Partial<Photo>) {
+  if (photo.imageUrl !== undefined && !isValidImageUrl(photo.imageUrl)) {
+    throw new Error("Invalid photo.imageUrl: only HTTP(S) URLs are allowed.");
+  }
+
+  if (photo.imageUrls !== undefined) {
+    if (!Array.isArray(photo.imageUrls)) {
+      throw new Error("Invalid photo.imageUrls: must be an array of URLs.");
+    }
+    if (photo.imageUrls.some((url) => !isValidImageUrl(url))) {
+      throw new Error("Invalid photo.imageUrls: all entries must be HTTP(S) URLs.");
+    }
+  }
+}
+
 export async function addPhotoToDB(photo: Omit<Photo, "id">): Promise<void> {
+  validatePhotoPayload(photo);
   await addDoc(collection(db, "photos"), photo);
 }
 
@@ -153,12 +198,22 @@ export async function uploadBase64Image(base64Data: string): Promise<string> {
     throw new Error(result.error?.message || "ImgBB upload failed");
   }
 
-  return result.data.url;
+  const newUrl = result.data.url as string;
+  if (!newUrl || !newUrl.startsWith("http")) {
+    throw new Error("ImgBB upload did not return a valid image URL");
+  }
+
+  return newUrl;
 }
 
 export async function uploadImagesToImgBB(images: string[]): Promise<string[]> {
   const uploads = images.map((image) => uploadBase64Image(image));
-  return await Promise.all(uploads);
+  const results = await Promise.all(uploads);
+  const invalid = results.filter((result) => typeof result !== "string" || result.startsWith("data:image"));
+  if (invalid.length) {
+    throw new Error("One or more ImgBB uploads returned invalid image values.");
+  }
+  return results;
 }
 
 export async function deletePhotoFromDB(id: string): Promise<void> {
@@ -170,6 +225,7 @@ export async function deletePostFromDB(id: string): Promise<void> {
 }
 
 export async function updatePhotoInDB(id: string, photo: Partial<Photo>): Promise<void> {
+  validatePhotoUpdatePayload(photo);
   await updateDoc(doc(db, "photos", id), photo);
 }
 

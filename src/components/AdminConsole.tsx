@@ -172,6 +172,9 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     setPublishing(true);
     try {
       const uploadedUrls = await uploadImagesToImgBB(list);
+      if (uploadedUrls.some((url) => !url || url.startsWith("data:image"))) {
+        throw new Error("Image upload failed: invalid image URL returned from ImgBB.");
+      }
       await addPhotoToDB({
         title: photoTitle.trim(),
         category: photoCategory,
@@ -313,6 +316,9 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
     setSavingEdit(true);
     try {
       const uploadedUrls = await uploadImagesToImgBB(list);
+      if (uploadedUrls.some((url) => !url || url.startsWith("data:image"))) {
+        throw new Error("Image upload failed: invalid image URL returned from ImgBB.");
+      }
       await updatePhotoInDB(editingPhoto.id!, {
         title: editTitle.trim(),
         category: editCategory,
