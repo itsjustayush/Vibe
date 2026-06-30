@@ -36,6 +36,7 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
         
         {/* Clickable overlay with fullscreen indicator */}
         <button
+          type="button"
           onClick={() => onClick(photo, currentSlide)}
           className="absolute inset-0 bg-black/0 group-hover:bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center cursor-pointer z-20"
           title="Click to view gallery"
@@ -50,8 +51,9 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
       </div>
 
       <button
+        type="button"
         onClick={() => onClick(photo, currentSlide)}
-        className="w-full text-left pt-4 flex justify-between items-start cursor-pointer group/info hover:opacity-75 transition-opacity"
+        className="w-full text-left pt-4 flex justify-between items-start cursor-pointer group/info hover:opacity-75 transition-opacity bg-white border-0 p-0"
       >
         <div className="flex-grow pr-3">
           <h4 className="font-serif text-lg font-medium text-black group-hover/info:text-black/80 transition-colors">
