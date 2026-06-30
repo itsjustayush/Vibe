@@ -385,13 +385,13 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 
                 {/* Left Column: Huge photographic frame with full carousel support */}
                 <div className="md:col-span-7 flex flex-col space-y-3 justify-center">
-                  <div className="bg-black/5 p-2 border border-[#e5e1d8] relative flex items-center justify-center">
+                  <div className="bg-black p-2 border border-[#e5e1d8] relative flex items-center justify-center" style={{ minHeight: "600px" }}>
                     <Carousel 
                       images={photoImages}
                       isNaturalColor={true}
                       currentIndex={activeImgIdx}
                       onSelectImage={setActiveImgIdx}
-                      className="w-full max-h-[500px]"
+                      className="w-full h-full"
                     />
                   </div>
 

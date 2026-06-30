@@ -84,11 +84,11 @@ export default function Carousel({
 
   return (
     <div 
-      className={`relative overflow-hidden group/carousel ${className}`}
+      className={`relative overflow-hidden group/carousel flex items-center justify-center ${className}`}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="relative w-full h-full bg-[#1a1a1a] flex items-center justify-center">
+      <div className="relative w-full h-full bg-[#1a1a1a] flex items-center justify-center min-h-[300px]">
         {/* Animated Slide Frame */}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.img
