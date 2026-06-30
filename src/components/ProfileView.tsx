@@ -23,8 +23,7 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
 
   return (
     <div 
-      onClick={() => onClick(photo, currentSlide)}
-      className="group cursor-pointer border border-[#e5e1d8] p-3 bg-white hover:border-black transition-all duration-300 hover:-translate-y-1 block"
+      className="group border border-[#e5e1d8] p-3 bg-white hover:border-black transition-all duration-300 hover:-translate-y-1 block"
     >
       <div className="relative overflow-hidden aspect-[16/10] bg-[#f7f4ed]">
         <Carousel 
@@ -32,8 +31,17 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
           isNaturalColor={isNaturalColor}
           currentIndex={currentSlide}
           onSelectImage={setCurrentSlide}
-          className="w-full h-full"
+          className="w-full h-full cursor-pointer"
         />
+        
+        {/* Clickable overlay with fullscreen indicator */}
+        <button
+          onClick={() => onClick(photo, currentSlide)}
+          className="absolute inset-0 bg-black/0 group-hover:bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center cursor-pointer z-20"
+          title="Click to view gallery"
+        >
+          <span className="material-symbols-outlined text-white text-5xl drop-shadow-lg">fullscreen</span>
+        </button>
         
         {/* Category Port Badge */}
         <div className="absolute top-2 left-2 px-2.5 py-1 bg-black text-[#f7f4ed] font-mono text-[9px] tracking-widest uppercase z-10">
@@ -41,9 +49,12 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
         </div>
       </div>
 
-      <div className="pt-4 flex justify-between items-start">
+      <button
+        onClick={() => onClick(photo, currentSlide)}
+        className="w-full text-left pt-4 flex justify-between items-start cursor-pointer group/info hover:opacity-75 transition-opacity"
+      >
         <div className="flex-grow pr-3">
-          <h4 className="font-serif text-lg font-medium text-black group-hover:text-black/80 transition-colors">
+          <h4 className="font-serif text-lg font-medium text-black group-hover/info:text-black/80 transition-colors">
             {photo.title}
           </h4>
           <p className="font-mono text-[10px] text-[#8b8780] tracking-wider uppercase mt-1">
@@ -70,7 +81,7 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
         <div className="font-mono text-[9px] text-[#8b8780] whitespace-nowrap pt-1">
           {new Date(photo.createdAt).toLocaleDateString("en-US", { month: "short", year: "numeric" })}
         </div>
-      </div>
+      </button>
 
       {photo.analyzedDescription && (
         <div className="mt-4 pt-3 border-t border-[#e5e1d8]/60 bg-neutral-50 p-2.5 flex items-start gap-2.5">
@@ -486,17 +497,29 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           : [fullscreenPhoto.imageUrl].filter(Boolean);
 
         return (
-          <div className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-4">
+          <div 
+            className="fixed inset-0 z-[60] bg-black flex flex-col items-center justify-center p-2 md:p-6 outline-none"
+            onClick={(e) => {
+              if (e.target === e.currentTarget) setFullscreenPhoto(null);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') setFullscreenPhoto(null);
+              if (e.key === 'ArrowLeft' && fullscreenImgIdx > 0) setFullscreenImgIdx(fullscreenImgIdx - 1);
+              if (e.key === 'ArrowRight' && fullscreenImgIdx < fullscreenImages.length - 1) setFullscreenImgIdx(fullscreenImgIdx + 1);
+            }}
+            tabIndex={0}
+            autoFocus
+          >
             {/* Fullscreen Close Button */}
             <button 
               onClick={() => setFullscreenPhoto(null)}
-              className="absolute top-6 right-6 text-white hover:opacity-75 transition-opacity z-10 p-2 cursor-pointer"
-              title="Exit fullscreen"
+              className="absolute top-4 right-4 md:top-6 md:right-6 text-white hover:opacity-75 transition-opacity z-10 p-2 cursor-pointer"
+              title="Exit fullscreen (ESC)"
             >
               <span className="material-symbols-outlined text-3xl">close</span>
             </button>
 
-            {/* Fullscreen Carousel */}
+            {/* Fullscreen Carousel - Full viewport display */}
             <div className="w-full h-full flex items-center justify-center">
               <Carousel 
                 images={fullscreenImages}
@@ -508,13 +531,19 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             </div>
 
             {/* Bottom Info Bar */}
-            <div className="absolute bottom-6 left-6 right-6 flex justify-between items-center text-white font-mono text-sm">
-              <div className="flex gap-4">
-                <span>{fullscreenPhoto.title}</span>
-                <span className="opacity-60">•</span>
-                <span className="opacity-60">{fullscreenPhoto.location}</span>
+            <div className="absolute bottom-3 left-3 right-3 md:bottom-6 md:left-6 md:right-6 flex flex-col md:flex-row justify-between items-start md:items-center text-white font-mono text-xs md:text-sm gap-2">
+              <div className="flex flex-col gap-1 md:gap-0 md:flex-row md:gap-4">
+                <span className="font-serif text-sm md:text-base">{fullscreenPhoto.title}</span>
+                <span className="opacity-60 hidden md:inline">•</span>
+                <span className="opacity-60 text-xs">{fullscreenPhoto.location}</span>
               </div>
               <span className="opacity-60">{fullscreenImgIdx + 1} / {fullscreenImages.length}</span>
+            </div>
+
+            {/* Keyboard hints */}
+            <div className="absolute top-4 left-4 text-white/60 font-mono text-[10px] md:text-xs space-y-1 hidden md:block">
+              <div>← → to navigate</div>
+              <div>ESC to close</div>
             </div>
           </div>
         );
