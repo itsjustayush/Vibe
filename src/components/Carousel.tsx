@@ -88,7 +88,7 @@ export default function Carousel({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
     >
-      <div className="relative w-full h-full bg-[#1a1a1a] flex items-center justify-center min-h-[300px]">
+      <div className="relative w-full h-full bg-[#1a1a1a] flex items-center justify-center">
         {/* Animated Slide Frame */}
         <AnimatePresence mode="popLayout" initial={false}>
           <motion.img
@@ -99,7 +99,7 @@ export default function Carousel({
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -25 }}
             transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-            className={`w-full h-full object-contain transition-all duration-700 select-none ${
+            className={`max-w-full max-h-full object-contain transition-all duration-700 select-none ${
               isNaturalColor 
                 ? "grayscale-0 contrast-100" 
                 : "grayscale contrast-115 group-hover/carousel:grayscale-0"

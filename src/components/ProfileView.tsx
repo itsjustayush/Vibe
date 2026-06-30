@@ -370,8 +370,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           : [selectedPhoto.imageUrl].filter(Boolean);
 
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-            <div className="bg-[#f7f4ed] w-full max-w-4xl p-6 md:p-8 relative border-0 rounded-none shadow-2xl">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-2 md:p-4">
+            <div className="bg-[#f7f4ed] w-full max-w-6xl p-3 md:p-8 relative border-0 rounded-none shadow-2xl max-h-[95vh] overflow-y-auto">
               
               {/* Close button with high aesthetic focus styling */}
               <button 
@@ -381,11 +381,11 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 <span className="material-symbols-outlined text-2xl">close</span>
               </button>
  
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 mt-4">
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-8 mt-2 md:mt-4">
                 
                 {/* Left Column: Huge photographic frame with full carousel support */}
-                <div className="md:col-span-7 flex flex-col space-y-3 justify-center">
-                  <div className="bg-black p-2 border border-[#e5e1d8] relative flex items-center justify-center" style={{ minHeight: "600px" }}>
+                <div className="md:col-span-7 flex flex-col space-y-2 md:space-y-3 justify-center">
+                  <div className="bg-black p-2 border border-[#e5e1d8] relative flex items-center justify-center" style={{ minHeight: "350px", maxHeight: "75vh" }}>
                     <Carousel 
                       images={photoImages}
                       isNaturalColor={true}
@@ -404,7 +404,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 </div>
  
                 {/* Right Column: Curator description and analytical panels */}
-                <div className="md:col-span-5 flex flex-col justify-between">
+                <div className="md:col-span-5 flex flex-col justify-between text-sm md:text-base">
                   <div className="space-y-6">
                     <div>
                       <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase">{selectedPhoto.location}</span>
