@@ -89,6 +89,18 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
   const [selectedPhoto, setSelectedPhoto] = useState<Photo | null>(null);
   const [activeImgIdx, setActiveImgIdx] = useState<number>(0);
   const [isNaturalColor, setIsNaturalColor] = useState<boolean>(true);
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
+
+  // Handle Escape key for closing lightbox
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && isLightboxOpen) {
+        setIsLightboxOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isLightboxOpen]);
 
   const categories = ["All", "Landscape", "Architecture", "Portrait", "Conceptual"];
 
@@ -379,7 +391,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 
                 {/* Left Column: Huge photographic frame with full carousel support */}
                 <div className="md:col-span-7 flex flex-col space-y-3 justify-center">
-                  <div className="bg-black/5 p-2 border border-[#e5e1d8] relative">
+                  <div className="bg-black/5 p-2 border border-[#e5e1d8] relative cursor-pointer group/modal-carousel hover:opacity-90 transition-opacity duration-200" onClick={() => setIsLightboxOpen(true)}>
                     <Carousel 
                       images={photoImages}
                       isNaturalColor={true}
@@ -387,6 +399,10 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                       onSelectImage={setActiveImgIdx}
                       className="w-full aspect-[16/10]"
                     />
+                    {/* Subtle click indicator overlay */}
+                    <div className="absolute inset-2 border border-white/20 pointer-events-none opacity-0 group-hover/modal-carousel:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                      <span className="material-symbols-outlined text-white/40 text-2xl">fullscreen</span>
+                    </div>
                   </div>
 
                   <div className="flex justify-between items-center font-mono text-[10px] text-[#5f5e59] uppercase px-1">
@@ -452,6 +468,105 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
  
               </div>
  
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Full-screen Lightbox Overlay */}
+      {isLightboxOpen && selectedPhoto && (() => {
+        const photoImages = selectedPhoto.imageUrls && selectedPhoto.imageUrls.length > 0
+          ? selectedPhoto.imageUrls
+          : [selectedPhoto.imageUrl].filter(Boolean);
+        
+        return (
+          <div 
+            className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 cursor-pointer"
+            onClick={() => setIsLightboxOpen(false)}
+          >
+            {/* Close Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsLightboxOpen(false);
+              }}
+              className="absolute top-6 right-6 text-white hover:opacity-70 transition-opacity z-[10000] p-2 cursor-pointer"
+              title="Close (Esc)"
+              aria-label="Close fullscreen view"
+            >
+              <span className="material-symbols-outlined text-3xl">close</span>
+            </button>
+
+            {/* Image Container with object-fit contain */}
+            <div className="w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
+              <img
+                src={photoImages[activeImgIdx]}
+                alt={`${selectedPhoto.title} - Full resolution`}
+                className="w-full h-full object-contain select-none"
+                draggable={false}
+                onContextMenu={(e) => e.preventDefault()}
+              />
+            </div>
+
+            {/* Multi-image Navigation (if more than 1 image) */}
+            {photoImages.length > 1 && (
+              <>
+                {/* Arrow Navigation */}
+                <div className="absolute inset-0 flex justify-between items-center px-6 pointer-events-none">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImgIdx((prev) => (prev - 1 + photoImages.length) % photoImages.length);
+                    }}
+                    className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all pointer-events-auto cursor-pointer border border-white/30 rounded-none"
+                    title="Previous image"
+                    aria-label="Previous image"
+                  >
+                    <span className="material-symbols-outlined">arrow_back</span>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveImgIdx((prev) => (prev + 1) % photoImages.length);
+                    }}
+                    className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all pointer-events-auto cursor-pointer border border-white/30 rounded-none"
+                    title="Next image"
+                    aria-label="Next image"
+                  >
+                    <span className="material-symbols-outlined">arrow_forward</span>
+                  </button>
+                </div>
+
+                {/* Image Counter and Dots */}
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+                  <div className="flex gap-1.5">
+                    {photoImages.map((_, idx) => (
+                      <button
+                        key={idx}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveImgIdx(idx);
+                        }}
+                        className={`transition-all cursor-pointer ${
+                          activeImgIdx === idx
+                            ? "w-2 h-2 bg-white"
+                            : "w-1.5 h-1.5 bg-white/40 hover:bg-white/70"
+                        }`}
+                        title={`Go to image ${idx + 1}`}
+                        aria-label={`Go to image ${idx + 1}`}
+                      />
+                    ))}
+                  </div>
+                  <span className="text-white/60 font-mono text-xs tracking-wider">
+                    {activeImgIdx + 1} / {photoImages.length}
+                  </span>
+                </div>
+              </>
+            )}
+
+            {/* Exit hint */}
+            <div className="absolute bottom-6 right-6 text-white/40 text-xs font-mono tracking-widest uppercase pointer-events-none">
+              Press ESC or click to exit
             </div>
           </div>
         );
