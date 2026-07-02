@@ -91,16 +91,30 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
   const [isNaturalColor, setIsNaturalColor] = useState<boolean>(true);
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
 
-  // Handle Escape key for closing lightbox
+  // Handle keyboard events: Escape to close, Arrow keys to navigate
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isLightboxOpen) {
+      if (!isLightboxOpen || !selectedPhoto) return;
+      
+      if (e.key === "Escape") {
         setIsLightboxOpen(false);
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        const photoImages = selectedPhoto.imageUrls && selectedPhoto.imageUrls.length > 0
+          ? selectedPhoto.imageUrls
+          : [selectedPhoto.imageUrl].filter(Boolean);
+        setActiveImgIdx((prev) => (prev - 1 + photoImages.length) % photoImages.length);
+      } else if (e.key === "ArrowRight") {
+        e.preventDefault();
+        const photoImages = selectedPhoto.imageUrls && selectedPhoto.imageUrls.length > 0
+          ? selectedPhoto.imageUrls
+          : [selectedPhoto.imageUrl].filter(Boolean);
+        setActiveImgIdx((prev) => (prev + 1) % photoImages.length);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isLightboxOpen]);
+  }, [isLightboxOpen, selectedPhoto]);
 
   const categories = ["All", "Landscape", "Architecture", "Portrait", "Conceptual"];
 
@@ -481,7 +495,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         
         return (
           <div 
-            className="fixed inset-0 z-[9999] bg-black/95 flex items-center justify-center p-4 cursor-pointer"
+            className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-xl flex items-center justify-center p-4 cursor-pointer animate-in fade-in duration-200"
             onClick={() => setIsLightboxOpen(false)}
           >
             {/* Close Button */}
@@ -490,7 +504,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 e.stopPropagation();
                 setIsLightboxOpen(false);
               }}
-              className="absolute top-6 right-6 text-white hover:opacity-70 transition-opacity z-[10000] p-2 cursor-pointer"
+              className="absolute top-6 right-6 text-white hover:opacity-70 transition-opacity z-[10000] p-2 cursor-pointer animate-in fade-in slide-in-from-top-2 duration-200"
               title="Close (Esc)"
               aria-label="Close fullscreen view"
             >
@@ -500,9 +514,10 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             {/* Image Container with object-fit contain */}
             <div className="w-full h-full flex items-center justify-center" onClick={(e) => e.stopPropagation()}>
               <img
+                key={activeImgIdx}
                 src={photoImages[activeImgIdx]}
                 alt={`${selectedPhoto.title} - Full resolution`}
-                className="w-full h-full object-contain select-none"
+                className="w-full h-full object-contain select-none animate-in fade-in duration-300"
                 draggable={false}
                 onContextMenu={(e) => e.preventDefault()}
               />
@@ -518,8 +533,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                       e.stopPropagation();
                       setActiveImgIdx((prev) => (prev - 1 + photoImages.length) % photoImages.length);
                     }}
-                    className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all pointer-events-auto cursor-pointer border border-white/30 rounded-none"
-                    title="Previous image"
+                    className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all pointer-events-auto cursor-pointer border border-white/30 rounded-none animate-in fade-in slide-in-from-left-2 duration-200 hover:scale-110"
+                    title="Previous image (← Arrow)"
                     aria-label="Previous image"
                   >
                     <span className="material-symbols-outlined">arrow_back</span>
@@ -529,8 +544,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                       e.stopPropagation();
                       setActiveImgIdx((prev) => (prev + 1) % photoImages.length);
                     }}
-                    className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all pointer-events-auto cursor-pointer border border-white/30 rounded-none"
-                    title="Next image"
+                    className="w-10 h-10 bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-all pointer-events-auto cursor-pointer border border-white/30 rounded-none animate-in fade-in slide-in-from-right-2 duration-200 hover:scale-110"
+                    title="Next image (→ Arrow)"
                     aria-label="Next image"
                   >
                     <span className="material-symbols-outlined">arrow_forward</span>
@@ -538,7 +553,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 </div>
 
                 {/* Image Counter and Dots */}
-                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4">
+                <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-200">
                   <div className="flex gap-1.5">
                     {photoImages.map((_, idx) => (
                       <button
@@ -549,8 +564,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                         }}
                         className={`transition-all cursor-pointer ${
                           activeImgIdx === idx
-                            ? "w-2 h-2 bg-white"
-                            : "w-1.5 h-1.5 bg-white/40 hover:bg-white/70"
+                            ? "w-2 h-2 bg-white scale-110"
+                            : "w-1.5 h-1.5 bg-white/40 hover:bg-white/70 hover:scale-125"
                         }`}
                         title={`Go to image ${idx + 1}`}
                         aria-label={`Go to image ${idx + 1}`}
@@ -564,9 +579,10 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               </>
             )}
 
-            {/* Exit hint */}
-            <div className="absolute bottom-6 right-6 text-white/40 text-xs font-mono tracking-widest uppercase pointer-events-none">
-              Press ESC or click to exit
+            {/* Exit and Navigation hint */}
+            <div className="absolute bottom-6 right-6 text-white/40 text-xs font-mono tracking-widest uppercase pointer-events-none text-right animate-in fade-in slide-in-from-right-2 duration-200">
+              <div>Press ESC or click to exit</div>
+              <div>Use ← → arrows to navigate</div>
             </div>
           </div>
         );
