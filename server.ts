@@ -2,8 +2,35 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
+import { Resend } from "resend";
 
 let aiClient: GoogleGenAI | null = null;
+let resendClient: Resend | null = null;
+
+function getResendClient(): Resend {
+  if (!resendClient) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      console.warn("WARNING: RESEND_API_KEY is not defined. Email submissions will be logged instead.");
+    }
+    resendClient = new Resend(apiKey || "");
+  }
+  return resendClient;
+}
+
+/**
+ * Escape HTML to prevent XSS in email templates
+ */
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;',
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+}
 
 function getAIClient(): GoogleGenAI {
   if (!aiClient) {
@@ -28,6 +55,117 @@ async function startServer() {
   // API: Health probe
   app.get("/api/health", (req, res) => {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
+  });
+
+  // API: Send Contact Form Email via Resend
+  app.post("/api/contact", async (req, res) => {
+    try {
+      const { name, email, subject, message } = req.body;
+
+      // Validate required fields
+      if (!name || !email || !message) {
+        return res.status(400).json({ error: "Name, email, and message are required." });
+      }
+
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: "Invalid email address." });
+      }
+
+      // Validate message length
+      if (message.length < 10 || message.length > 5000) {
+        return res.status(400).json({ error: "Message must be between 10 and 5000 characters." });
+      }
+
+      const resend = getResendClient();
+      const apiKey = process.env.RESEND_API_KEY;
+
+      // If Resend API key is not configured, log to console
+      if (!apiKey) {
+        console.log("[Contact Form] Submission received (no email sent - RESEND_API_KEY not configured):", {
+          name,
+          email,
+          subject,
+          message: message.substring(0, 100) + "...",
+          timestamp: new Date().toISOString(),
+        });
+
+        return res.json({
+          success: true,
+          message: "Thank you! Your message has been received. (Email feature not configured)",
+          fallback: true,
+        });
+      }
+
+      // Send email via Resend
+      const emailResult = await resend.emails.send({
+        from: `AYU.VIBEE <noreply@ayu.vibee>`, // Update with your Resend verified domain
+        to: process.env.CONTACT_EMAIL || "info.cometlabs@gmail.com",
+        replyTo: email,
+        subject: `New Contact Form Submission: ${subject || "General Inquiry"}`,
+        html: `
+          <div style="font-family: 'Playfair Display', 'Plus Jakarta Sans', sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 24px;">New Contact Form Submission</h2>
+            
+            <div style="background-color: #f7f4ed; padding: 20px; margin-bottom: 24px; border: 1px solid #e5e1d8;">
+              <p style="margin: 0 0 12px 0;"><strong>From:</strong> ${name}</p>
+              <p style="margin: 0 0 12px 0;"><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
+              <p style="margin: 0;"><strong>Subject:</strong> ${subject || "(No subject)"}</p>
+            </div>
+
+            <div style="margin-bottom: 24px;">
+              <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">Message:</h3>
+              <p style="white-space: pre-wrap; line-height: 1.6; color: #5f5e59;">${escapeHtml(message)}</p>
+            </div>
+
+            <div style="border-top: 1px solid #e5e1d8; padding-top: 16px; font-size: 12px; color: #8b8780;">
+              <p style="margin: 0;">Sent from <strong>ayu.vibee</strong> contact form</p>
+              <p style="margin: 8px 0 0 0;">${new Date().toLocaleString()}</p>
+            </div>
+          </div>
+        `,
+      });
+
+      // Also send confirmation email to user
+      await resend.emails.send({
+        from: `AYU.VIBEE <noreply@ayu.vibee>`,
+        to: email,
+        subject: "We received your message — AYU.VIBEE",
+        html: `
+          <div style="font-family: 'Plus Jakarta Sans', sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px;">Thank you for reaching out</h2>
+            
+            <p style="margin-bottom: 16px; line-height: 1.6; color: #5f5e59;">
+              Hi <strong>${name}</strong>,<br><br>
+              We've received your message and will get back to you within 24-48 hours. We appreciate your interest in collaborating or connecting with AYU.VIBEE.
+            </p>
+
+            <div style="background-color: #f7f4ed; padding: 16px; margin-bottom: 24px; border: 1px solid #e5e1d8;">
+              <p style="margin: 0; font-size: 12px; color: #8b8780;"><strong>Your Message:</strong></p>
+              <p style="margin: 8px 0 0 0; font-size: 13px; color: #5f5e59;">${escapeHtml(message.substring(0, 200))}${message.length > 200 ? '...' : ''}</p>
+            </div>
+
+            <p style="margin: 0; line-height: 1.6; color: #5f5e59; font-size: 13px;">
+              If you have any additional information to share, feel free to reply to this email.<br><br>
+              Best regards,<br>
+              <strong>Ayush Bhattacharya</strong><br>
+              AYU.VIBEE Photography
+            </p>
+          </div>
+        `,
+      });
+
+      res.json({
+        success: true,
+        message: "Thank you! Your message has been sent. We will get back to you soon.",
+      });
+    } catch (error: any) {
+      console.error("Contact Form Error:", error);
+      res.status(500).json({
+        error: error.message || "Failed to send your message. Please try again later.",
+      });
+    }
   });
 
   // API: Analyze Image Curation

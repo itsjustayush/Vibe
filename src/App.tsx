@@ -10,11 +10,15 @@ import AccessDeniedView from "./components/AccessDeniedView";
 import NotFoundView from "./components/NotFoundView";
 import SpiralLoader from "./components/SpiralLoader";
 import AyuVibeeLogo from "./components/AyuVibeeLogo";
+import SEOHead from "./components/SEOHead";
 import { auth } from "./firebase";
 import { onAuthStateChanged, signOut, User } from "firebase/auth";
 import { getPhotosFromDB, getPostsFromDB, getRealInsights, trackInsightEncounter, AppInsights } from "./dbHelper";
 import { Photo, Post } from "./types";
 import { motion, AnimatePresence } from "motion/react";
+import { generateWebsiteSchema, generatePhotographerSchema } from "./seo/metadata";
+import { observeWebVitals, setupLazyLoading, preconnect } from "./utils/performance";
+import { trackPageView } from "./hooks/useAnalytics";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<string>("portfolio");
@@ -53,6 +57,10 @@ export default function App() {
 
   useEffect(() => {
     if (initialLoading) return;
+    
+    // Track page view for analytics
+    trackPageView(currentView);
+    
     if (currentView === "portfolio") {
       trackInsightEncounter("portfolioViews").then(() => {
         getRealInsights().then(setInsights);
@@ -71,6 +79,22 @@ export default function App() {
       });
     }
   }, [currentView, initialLoading]);
+
+  // Initialize performance monitoring and optimizations
+  useEffect(() => {
+    // Setup lazy loading for images
+    setupLazyLoading();
+
+    // Monitor Web Vitals
+    observeWebVitals((metric) => {
+      console.log(`[Web Vital] ${metric.name}: ${metric.value.toFixed(2)}`);
+    });
+
+    // Preconnect to external domains for better performance
+    preconnect('fonts.googleapis.com');
+    preconnect('fonts.gstatic.com');
+    preconnect('static.cloudflareinsights.com');
+  }, []);
 
   useEffect(() => {
     loadDatabaseData();
@@ -127,6 +151,11 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f7f4ed] overflow-x-hidden text-[#1a1a1a] flex flex-col justify-between selection:bg-neutral-900 selection:text-white">
+      {/* SEO Head Component - manages meta tags and schema markup */}
+      <SEOHead 
+        page={currentView} 
+        schemaMarkup={[generateWebsiteSchema(), generatePhotographerSchema()]}
+      />
       
       {/* Global Brand Header */}
       <Navigation 

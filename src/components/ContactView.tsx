@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { validateContactForm, checkRateLimit, recordSubmission, ContactFormData, ContactFormError, sanitizeInput } from "../utils/contactForm";
 
 interface ContactViewProps {
   onNavigate: (view: string) => void;
@@ -85,14 +86,80 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
   const [formEmail, setFormEmail] = useState("");
   const [formSubject, setFormSubject] = useState("");
   const [formMessage, setFormMessage] = useState("");
-  const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [generalError, setGeneralError] = useState("");
+  const [rateLimitError, setRateLimitError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const mailto = `mailto:info.cometlabs@gmail.com?subject=${encodeURIComponent(formSubject || "Contact from ayu.vibee")}&body=${encodeURIComponent(`Name: ${formName}\nEmail: ${formEmail}\n\n${formMessage}`)}`;
-    window.open(mailto, "_blank");
-    setSent(true);
-    setTimeout(() => setSent(false), 5000);
+    setErrors({});
+    setGeneralError("");
+    setRateLimitError("");
+
+    // Check rate limit
+    const rateLimit = checkRateLimit();
+    if (!rateLimit.allowed) {
+      const resetTime = rateLimit.resetTime ? new Date(rateLimit.resetTime).toLocaleString() : "later";
+      setRateLimitError(`You've reached the submission limit. Please try again after ${resetTime}`);
+      return;
+    }
+
+    // Validate form
+    const formData: ContactFormData = {
+      name: sanitizeInput(formName),
+      email: sanitizeInput(formEmail),
+      subject: sanitizeInput(formSubject),
+      message: sanitizeInput(formMessage),
+    };
+
+    const validationErrors = validateContactForm(formData);
+    if (validationErrors.length > 0) {
+      const errorMap: Record<string, string> = {};
+      validationErrors.forEach((err) => {
+        if (err.field !== 'general' && err.field !== 'submit') {
+          errorMap[err.field] = err.message;
+        } else {
+          setGeneralError(err.message);
+        }
+      });
+      setErrors(errorMap);
+      return;
+    }
+
+    // Submit form
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setGeneralError(data.error || "Failed to send message. Please try again.");
+        return;
+      }
+
+      // Success
+      recordSubmission();
+      setFormName("");
+      setFormEmail("");
+      setFormSubject("");
+      setFormMessage("");
+      setSubmitted(true);
+
+      // Auto-dismiss success message after 5 seconds
+      setTimeout(() => setSubmitted(false), 5000);
+    } catch (error) {
+      console.error("Contact form error:", error);
+      setGeneralError("Failed to send your message. Please check your connection and try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -204,12 +271,33 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
 
           {/* Right — form */}
           <form onSubmit={handleSubmit} className="space-y-5">
-            {sent && (
-              <div className="p-4 bg-emerald-50 border border-emerald-300 flex items-center gap-3">
-                <span className="material-symbols-outlined text-emerald-600 text-xl">check_circle</span>
-                <p className="font-mono text-[10px] uppercase tracking-wider text-emerald-700">
-                  Email client opened! Message drafted &amp; ready to send.
-                </p>
+            {submitted && (
+              <div className="p-4 bg-emerald-50 border border-emerald-300 flex items-start gap-3">
+                <span className="material-symbols-outlined text-emerald-600 text-xl flex-shrink-0 mt-0.5">check_circle</span>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-emerald-700 font-semibold">Message sent successfully!</p>
+                  <p className="font-sans text-xs text-emerald-600 mt-1">We&apos;ll respond within 24-48 hours. Check your email for confirmation.</p>
+                </div>
+              </div>
+            )}
+
+            {generalError && (
+              <div className="p-4 bg-red-50 border border-red-300 flex items-start gap-3">
+                <span className="material-symbols-outlined text-red-600 text-xl flex-shrink-0 mt-0.5">error</span>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-red-700 font-semibold">Error</p>
+                  <p className="font-sans text-xs text-red-600 mt-1">{generalError}</p>
+                </div>
+              </div>
+            )}
+
+            {rateLimitError && (
+              <div className="p-4 bg-yellow-50 border border-yellow-300 flex items-start gap-3">
+                <span className="material-symbols-outlined text-yellow-600 text-xl flex-shrink-0 mt-0.5">schedule</span>
+                <div>
+                  <p className="font-mono text-[10px] uppercase tracking-wider text-yellow-700 font-semibold">Rate Limited</p>
+                  <p className="font-sans text-xs text-yellow-600 mt-1">{rateLimitError}</p>
+                </div>
               </div>
             )}
 
@@ -220,10 +308,11 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                   type="text"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
-                  required
+                  disabled={isSubmitting}
                   placeholder="Arjun Mehta"
-                  className="field"
+                  className={`field ${errors.name ? 'border-red-400 bg-red-50' : ''}`}
                 />
+                {errors.name && <p className="font-sans text-xs text-red-600">{errors.name}</p>}
               </div>
               <div className="space-y-1.5">
                 <label className="label-sm">Your Email *</label>
@@ -231,16 +320,22 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                   type="email"
                   value={formEmail}
                   onChange={e => setFormEmail(e.target.value)}
-                  required
+                  disabled={isSubmitting}
                   placeholder="arjun@example.com"
-                  className="field"
+                  className={`field ${errors.email ? 'border-red-400 bg-red-50' : ''}`}
                 />
+                {errors.email && <p className="font-sans text-xs text-red-600">{errors.email}</p>}
               </div>
             </div>
 
             <div className="space-y-1.5">
               <label className="label-sm">Subject</label>
-              <select value={formSubject} onChange={e => setFormSubject(e.target.value)} className="field">
+              <select 
+                value={formSubject} 
+                onChange={e => setFormSubject(e.target.value)} 
+                disabled={isSubmitting}
+                className={`field ${errors.subject ? 'border-red-400 bg-red-50' : ''}`}
+              >
                 <option value="">Select a topic...</option>
                 <option>Editorial Collaboration</option>
                 <option>Print Licensing</option>
@@ -248,6 +343,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                 <option>Exhibition Inquiry</option>
                 <option>General Inquiry</option>
               </select>
+              {errors.subject && <p className="font-sans text-xs text-red-600">{errors.subject}</p>}
             </div>
 
             <div className="space-y-1.5">
@@ -256,25 +352,37 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                 rows={6}
                 value={formMessage}
                 onChange={e => setFormMessage(e.target.value)}
-                required
+                disabled={isSubmitting}
                 placeholder="Tell me about your project, idea, or just say hello..."
-                className="field resize-none"
+                className={`field resize-none ${errors.message ? 'border-red-400 bg-red-50' : ''}`}
               />
-              <div className="flex justify-end font-mono text-[8px] text-[#8b8780]">
-                {formMessage.length} characters
+              {errors.message && <p className="font-sans text-xs text-red-600">{errors.message}</p>}
+              <div className="flex justify-between font-mono text-[8px] text-[#8b8780]">
+                <span>{formMessage.length} / 5000 characters</span>
+                {formMessage.length > 4500 && <span className="text-orange-600">Approaching limit</span>}
               </div>
             </div>
 
             <button
               type="submit"
-              className="w-full py-4 bg-black text-white font-mono text-[10px] tracking-[0.25em] uppercase hover:opacity-90 transition-opacity flex items-center justify-center gap-2.5 cursor-pointer"
+              disabled={isSubmitting}
+              className="w-full py-4 bg-black text-white font-mono text-[10px] tracking-[0.25em] uppercase hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center justify-center gap-2.5"
             >
-              <span className="material-symbols-outlined text-sm">send</span>
-              Open Email &amp; Send
+              {isSubmitting ? (
+                <>
+                  <span className="inline-block animate-spin">⏳</span>
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-sm">send</span>
+                  Send Message
+                </>
+              )}
             </button>
 
             <p className="font-mono text-[8px] text-center text-[#8b8780] uppercase tracking-wider">
-              This opens your default email app — no form data is stored here.
+              Your message will be delivered securely via email.
             </p>
           </form>
         </div>
