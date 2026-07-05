@@ -2,20 +2,53 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-import { Resend } from "resend";
+import * as brevo from "brevo";
+import { initializeApp, cert } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 
 let aiClient: GoogleGenAI | null = null;
-let resendClient: Resend | null = null;
+let brevoClient: brevo.TransactionalEmailsApi | null = null;
+let db: any = null;
 
-function getResendClient(): Resend {
-  if (!resendClient) {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) {
-      console.warn("WARNING: RESEND_API_KEY is not defined. Email submissions will be logged instead.");
+// Initialize Firestore
+function getDb() {
+  if (!db) {
+    try {
+      const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT
+        ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)
+        : null;
+
+      if (serviceAccount) {
+        const app = initializeApp({
+          credential: cert(serviceAccount),
+        });
+        db = getFirestore(app);
+        console.log("[Firestore] Initialized successfully");
+      } else {
+        console.warn("[Firestore] FIREBASE_SERVICE_ACCOUNT not configured. Contact forms won't be persisted.");
+      }
+    } catch (error) {
+      console.error("[Firestore] Initialization error:", error);
     }
-    resendClient = new Resend(apiKey || "");
   }
-  return resendClient;
+  return db;
+}
+
+// Initialize Brevo Email Client
+function getBrevoClient(): brevo.TransactionalEmailsApi {
+  if (!brevoClient) {
+    const apiKey = process.env.BREVO_API_KEY;
+    if (!apiKey) {
+      console.warn("[Brevo] BREVO_API_KEY not defined. Emails will not be sent.");
+    }
+    
+    const defaultClient = brevo.ApiClient.instance;
+    const apiKeyAuth = defaultClient.authentications["api-key"];
+    apiKeyAuth.apiKey = apiKey || "";
+    
+    brevoClient = new brevo.TransactionalEmailsApi();
+  }
+  return brevoClient;
 }
 
 /**
@@ -30,6 +63,125 @@ function escapeHtml(text: string): string {
     "'": '&#039;',
   };
   return text.replace(/[&<>"']/g, (m) => map[m]);
+}
+
+/**
+ * Generate admin notification email HTML
+ */
+function generateAdminEmail(data: any, firestoreId: string | null): string {
+  const timestamp = new Date(data.timestamp).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    timeZone: "UTC",
+  });
+
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #f7f4ed;">
+      <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #f7f4ed; padding: 40px 30px; text-align: center;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600;">New Contact Form Submission</h1>
+        <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">From AYU.VIBEE Portfolio</p>
+      </div>
+
+      <div style="padding: 40px 30px;">
+        <!-- Sender Info -->
+        <div style="background: #ffffff; border: 1px solid #e5e1d8; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; font-size: 14px;">
+            <div>
+              <p style="margin: 0 0 4px 0; font-weight: 600; color: #1a1a1a;">Name</p>
+              <p style="margin: 0; color: #5f5e59;">${escapeHtml(data.name)}</p>
+            </div>
+            <div>
+              <p style="margin: 0 0 4px 0; font-weight: 600; color: #1a1a1a;">Email</p>
+              <p style="margin: 0;"><a href="mailto:${escapeHtml(data.email)}" style="color: #0066cc; text-decoration: none;">${escapeHtml(data.email)}</a></p>
+            </div>
+            ${data.subject ? `
+            <div style="grid-column: 1 / -1;">
+              <p style="margin: 0 0 4px 0; font-weight: 600; color: #1a1a1a;">Subject</p>
+              <p style="margin: 0; color: #5f5e59;">${escapeHtml(data.subject)}</p>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Message -->
+        <div style="background: #ffffff; border: 1px solid #e5e1d8; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 600; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.5px;">Message</h3>
+          <p style="margin: 0; white-space: pre-wrap; line-height: 1.6; color: #5f5e59; font-size: 14px;">${escapeHtml(data.message)}</p>
+        </div>
+
+        <!-- Metadata -->
+        <div style="background: #f7f4ed; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 12px; color: #8b8780;">
+            <div>
+              <strong style="color: #5f5e59;">Submitted:</strong> ${timestamp} UTC
+            </div>
+            ${data.country ? `<div><strong style="color: #5f5e59;">Country:</strong> ${escapeHtml(data.country)}</div>` : ''}
+            ${data.browser ? `<div style="grid-column: 1 / -1;"><strong style="color: #5f5e59;">Browser:</strong> ${escapeHtml(data.browser)}</div>` : ''}
+            ${data.page ? `<div style="grid-column: 1 / -1;"><strong style="color: #5f5e59;">Page:</strong> ${escapeHtml(data.page)}</div>` : ''}
+            ${firestoreId ? `<div style="grid-column: 1 / -1;"><strong style="color: #5f5e59;">Submission ID:</strong> ${firestoreId}</div>` : ''}
+          </div>
+        </div>
+
+        <!-- CTA -->
+        <div style="text-align: center; padding-top: 20px; border-top: 1px solid #e5e1d8;">
+          <a href="mailto:${escapeHtml(data.email)}?subject=Re: ${encodeURIComponent(data.subject || 'Contact Form Submission')}" style="display: inline-block; background: #1a1a1a; color: #f7f4ed; padding: 12px 24px; border-radius: 4px; text-decoration: none; font-weight: 600; font-size: 13px;">Reply to ${escapeHtml(data.name.split(' ')[0])}</a>
+        </div>
+      </div>
+
+      <div style="background: #1a1a1a; color: #8b8780; padding: 20px 30px; text-align: center; font-size: 11px; border-top: 1px solid #e5e1d8;">
+        <p style="margin: 0;">This is an automated message from your AYU.VIBEE contact form.</p>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Generate visitor confirmation email HTML
+ */
+function generateVisitorEmail(visitorName: string): string {
+  return `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif; max-width: 650px; margin: 0 auto; background: #f7f4ed;">
+      <div style="background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%); color: #f7f4ed; padding: 40px 30px; text-align: center;">
+        <h1 style="margin: 0; font-size: 28px; font-weight: 600;">Got Your Message!</h1>
+        <p style="margin: 8px 0 0 0; font-size: 13px; opacity: 0.8;">We appreciate you reaching out</p>
+      </div>
+
+      <div style="padding: 40px 30px;">
+        <p style="margin: 0 0 20px 0; font-size: 16px; line-height: 1.6; color: #1a1a1a;">
+          Hey <strong>${escapeHtml(visitorName.split(' ')[0])}</strong>,
+        </p>
+
+        <p style="margin: 0 0 24px 0; font-size: 15px; line-height: 1.6; color: #5f5e59;">
+          Thanks for reaching out! I've received your message and will get back to you as soon as possible. I appreciate your interest in collaborating or connecting with me.
+        </p>
+
+        <div style="background: #ffffff; border: 1px solid #e5e1d8; border-radius: 8px; padding: 24px; margin-bottom: 24px;">
+          <p style="margin: 0 0 12px 0; font-size: 13px; font-weight: 600; color: #1a1a1a; text-transform: uppercase; letter-spacing: 0.5px;">Expected Response Time</p>
+          <p style="margin: 0; font-size: 14px; color: #5f5e59;">24–48 hours</p>
+        </div>
+
+        <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #5f5e59;">
+          In the meantime, feel free to reach out via social media or check out more of my work on the portfolio.
+        </p>
+      </div>
+
+      <div style="background: #f7f4ed; padding: 30px; text-align: center; border-top: 1px solid #e5e1d8;">
+        <p style="margin: 0 0 16px 0; font-size: 13px; color: #8b8780;">
+          <strong>Ayush Bhattacharya</strong><br>
+          AYU.VIBEE Photography
+        </p>
+        <div style="font-size: 12px; color: #8b8780;">
+          <a href="https://instagram.com/ayu.vibee" style="color: #8b8780; text-decoration: none; margin: 0 8px;">Instagram</a>
+          <span style="color: #c5c0b8;">•</span>
+          <a href="https://x.com/ayushbhattacharya" style="color: #8b8780; text-decoration: none; margin: 0 8px;">Twitter</a>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function getAIClient(): GoogleGenAI {
@@ -57,10 +209,10 @@ async function startServer() {
     res.json({ status: "healthy", timestamp: new Date().toISOString() });
   });
 
-  // API: Send Contact Form Email via Resend
+  // API: Contact Form - Save to Firestore and Send Email via Brevo
   app.post("/api/contact", async (req, res) => {
     try {
-      const { name, email, subject, message } = req.body;
+      const { name, email, subject, message, country, browser, page } = req.body;
 
       // Validate required fields
       if (!name || !email || !message) {
@@ -78,87 +230,94 @@ async function startServer() {
         return res.status(400).json({ error: "Message must be between 10 and 5000 characters." });
       }
 
-      const resend = getResendClient();
-      const apiKey = process.env.RESEND_API_KEY;
+      // Prepare contact data for Firestore
+      const contactData = {
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        subject: (subject || "").trim(),
+        message: message.trim(),
+        country: country || null,
+        browser: browser || null,
+        page: page || null,
+        timestamp: new Date().toISOString(),
+        ipHash: req.ip ? require("crypto").createHash("sha256").update(req.ip).digest("hex") : null,
+      };
 
-      // If Resend API key is not configured, log to console
+      // Save to Firestore
+      const firestore = getDb();
+      let firestoreId = null;
+      if (firestore) {
+        try {
+          const docRef = await firestore.collection("contact_submissions").add(contactData);
+          firestoreId = docRef.id;
+          console.log(`[Firestore] Contact saved: ${firestoreId}`);
+        } catch (error) {
+          console.error("[Firestore] Save error:", error);
+          // Continue - email delivery is more important than persistence
+        }
+      }
+
+      const brevoClient = getBrevoClient();
+      const apiKey = process.env.BREVO_API_KEY;
+
+      // If Brevo API key is not configured, log to console but still save to Firestore
       if (!apiKey) {
-        console.log("[Contact Form] Submission received (no email sent - RESEND_API_KEY not configured):", {
+        console.log("[Brevo] API key not configured. Contact saved to Firestore only:", {
+          id: firestoreId,
           name,
           email,
-          subject,
-          message: message.substring(0, 100) + "...",
           timestamp: new Date().toISOString(),
         });
 
         return res.json({
           success: true,
-          message: "Thank you! Your message has been received. (Email feature not configured)",
-          fallback: true,
+          message: "Thank you! Your message has been received. We'll get back to you as soon as possible.",
+          id: firestoreId,
         });
       }
 
-      // Send email via Resend
-      const emailResult = await resend.emails.send({
-        from: `AYU.VIBEE <noreply@ayu.vibee>`, // Update with your Resend verified domain
-        to: process.env.CONTACT_EMAIL || "info.cometlabs@gmail.com",
-        replyTo: email,
-        subject: `New Contact Form Submission: ${subject || "General Inquiry"}`,
-        html: `
-          <div style="font-family: 'Playfair Display', 'Plus Jakarta Sans', sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="font-size: 24px; font-weight: bold; margin-bottom: 24px;">New Contact Form Submission</h2>
-            
-            <div style="background-color: #f7f4ed; padding: 20px; margin-bottom: 24px; border: 1px solid #e5e1d8;">
-              <p style="margin: 0 0 12px 0;"><strong>From:</strong> ${name}</p>
-              <p style="margin: 0 0 12px 0;"><strong>Email:</strong> <a href="mailto:${email}">${email}</a></p>
-              <p style="margin: 0;"><strong>Subject:</strong> ${subject || "(No subject)"}</p>
-            </div>
+      // Send email to site owner via Brevo
+      const sendSmtpEmail = new brevo.SendSmtpEmail();
+      sendSmtpEmail.to = [
+        {
+          email: process.env.CONTACT_EMAIL || "info.cometlabs@gmail.com",
+          name: "AYU.VIBEE Admin",
+        },
+      ];
+      sendSmtpEmail.replyTo = { email, name };
+      sendSmtpEmail.subject = `New Contact: ${subject || "General Inquiry"} from ${name}`;
+      sendSmtpEmail.htmlContent = generateAdminEmail(contactData, firestoreId);
+      sendSmtpEmail.headers = {
+        "X-Submission-ID": firestoreId || "unknown",
+      };
 
-            <div style="margin-bottom: 24px;">
-              <h3 style="font-size: 16px; font-weight: bold; margin-bottom: 12px;">Message:</h3>
-              <p style="white-space: pre-wrap; line-height: 1.6; color: #5f5e59;">${escapeHtml(message)}</p>
-            </div>
+      try {
+        await brevoClient.sendTransacEmail(sendSmtpEmail);
+        console.log(`[Brevo] Admin email sent for submission ${firestoreId}`);
+      } catch (emailError) {
+        console.error("[Brevo] Admin email error:", emailError);
+        // Don't fail the request - submission is already saved in Firestore
+      }
 
-            <div style="border-top: 1px solid #e5e1d8; padding-top: 16px; font-size: 12px; color: #8b8780;">
-              <p style="margin: 0;">Sent from <strong>ayu.vibee</strong> contact form</p>
-              <p style="margin: 8px 0 0 0;">${new Date().toLocaleString()}</p>
-            </div>
-          </div>
-        `,
-      });
+      // Send confirmation email to visitor
+      const confirmationEmail = new brevo.SendSmtpEmail();
+      confirmationEmail.to = [{ email, name }];
+      confirmationEmail.subject = "Thanks for reaching out! — AYU.VIBEE";
+      confirmationEmail.htmlContent = generateVisitorEmail(name);
+      confirmationEmail.replyTo = { email: process.env.CONTACT_EMAIL || "info.cometlabs@gmail.com" };
 
-      // Also send confirmation email to user
-      await resend.emails.send({
-        from: `AYU.VIBEE <noreply@ayu.vibee>`,
-        to: email,
-        subject: "We received your message — AYU.VIBEE",
-        html: `
-          <div style="font-family: 'Plus Jakarta Sans', sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="font-size: 20px; font-weight: bold; margin-bottom: 16px;">Thank you for reaching out</h2>
-            
-            <p style="margin-bottom: 16px; line-height: 1.6; color: #5f5e59;">
-              Hi <strong>${name}</strong>,<br><br>
-              We've received your message and will get back to you within 24-48 hours. We appreciate your interest in collaborating or connecting with AYU.VIBEE.
-            </p>
-
-            <div style="background-color: #f7f4ed; padding: 16px; margin-bottom: 24px; border: 1px solid #e5e1d8;">
-              <p style="margin: 0; font-size: 12px; color: #8b8780;"><strong>Your Message:</strong></p>
-              <p style="margin: 8px 0 0 0; font-size: 13px; color: #5f5e59;">${escapeHtml(message.substring(0, 200))}${message.length > 200 ? '...' : ''}</p>
-            </div>
-
-            <p style="margin: 0; line-height: 1.6; color: #5f5e59; font-size: 13px;">
-              If you have any additional information to share, feel free to reply to this email.<br><br>
-              Best regards,<br>
-              <strong>Ayush Bhattacharya</strong><br>
-              AYU.VIBEE Photography
-            </p>
-          </div>
-        `,
-      });
+      try {
+        await brevoClient.sendTransacEmail(confirmationEmail);
+        console.log(`[Brevo] Confirmation email sent to ${email}`);
+      } catch (emailError) {
+        console.error("[Brevo] Confirmation email error:", emailError);
+        // Don't fail - main submission is saved and admin was notified
+      }
 
       res.json({
         success: true,
-        message: "Thank you! Your message has been sent. We will get back to you soon.",
+        message: "Thank you! Your message has been received. We'll get back to you as soon as possible.",
+        id: firestoreId,
       });
     } catch (error: any) {
       console.error("Contact Form Error:", error);
