@@ -27,15 +27,16 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
   return (
     <>
       {/* ── Top Navbar ─────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-40 w-full border-b border-[#e5e1d8] bg-[#f7f4ed]/90 backdrop-blur-md px-6 md:px-16 lg:px-20 py-4 flex items-center justify-between">
+      <nav className="sticky top-0 z-40 w-full border-b border-[#e5e1d8] bg-[#f7f4ed]/90 backdrop-blur-md px-6 md:px-16 lg:px-20 py-4 flex items-center justify-between" role="navigation" aria-label="Main navigation">
 
         {/* Brand */}
-        <div
+        <button
           onClick={() => handleNav("portfolio")}
-          className="cursor-pointer hover:opacity-80 transition-opacity py-1 z-50 relative"
+          className="cursor-pointer hover:opacity-80 transition-opacity py-1 z-50 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black rounded"
+          aria-label="AYU.VIBEE Home"
         >
           <AyuVibeeLogo size="sm" theme="dark" className="!items-start" />
-        </div>
+        </button>
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center space-x-8 lg:space-x-12">
@@ -43,11 +44,12 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
             <button
               key={link.id}
               onClick={() => handleNav(link.id)}
-              className={`font-sans text-xs tracking-[0.2em] uppercase cursor-pointer transition-colors ${
+              className={`font-sans text-xs tracking-[0.2em] uppercase cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-black rounded px-1 py-1 ${
                 currentView === link.id
                   ? "font-bold text-black border-b border-black pb-0.5"
                   : "text-[#5f5e59] hover:text-black"
               }`}
+              aria-current={currentView === link.id ? "page" : undefined}
             >
               {link.label}
             </button>
@@ -60,14 +62,14 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
             <>
               <button
                 onClick={() => handleNav("admin")}
-                className="px-4 py-2 bg-black text-[#f7f4ed] font-sans text-xs tracking-widest uppercase hover:opacity-80 transition-opacity cursor-pointer"
+                className="px-4 py-2 bg-black text-[#f7f4ed] font-sans text-xs tracking-widest uppercase hover:opacity-80 transition-opacity cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black rounded"
               >
                 Dashboard
               </button>
               <button
                 onClick={onLogout}
-                className="px-3 py-2 border border-black font-sans text-xs tracking-widest uppercase hover:bg-black hover:text-[#f7f4ed] transition-colors cursor-pointer"
-                title="Logout"
+                className="px-3 py-2 border border-black font-sans text-xs tracking-widest uppercase hover:bg-black hover:text-[#f7f4ed] transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black rounded"
+                aria-label="Logout"
               >
                 <span className="material-symbols-outlined text-[16px] block">logout</span>
               </button>
@@ -159,7 +161,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 
 export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) => void; onOpenGate: () => void }) {
   return (
-    <footer className="w-full border-t border-[#e5e1d8] bg-[#f7f4ed] px-6 md:px-16 lg:px-20 py-10 mt-20">
+    <footer className="w-full border-t border-[#e5e1d8] bg-[#f7f4ed] px-6 md:px-16 lg:px-20 py-10 mt-20" role="contentinfo">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
 
         {/* Brand */}
@@ -174,7 +176,7 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
         </div>
 
         {/* Links */}
-        <div className="flex flex-wrap gap-x-8 gap-y-3">
+        <nav className="flex flex-wrap gap-x-8 gap-y-3" aria-label="Footer navigation">
           {[
             { label: "Portfolio", view: "portfolio" },
             { label: "Stories", view: "stories" },
@@ -185,7 +187,7 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
             <button
               key={l.view}
               onClick={() => onNavigate(l.view)}
-              className="font-sans text-[11px] tracking-widest uppercase text-[#5f5e59] hover:text-black transition-colors cursor-pointer"
+              className="font-sans text-[11px] tracking-widest uppercase text-[#5f5e59] hover:text-black transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-black rounded px-1 py-1"
             >
               {l.label}
             </button>
@@ -193,12 +195,12 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
           {/* Hidden admin gate — subtle */}
           <button
             onClick={onOpenGate}
-            className="font-mono text-[9px] tracking-widest uppercase text-[#c5c0b8] hover:text-[#8b8780] transition-colors cursor-pointer text-center rounded-tl-[0px] rounded-tr-[0px] rounded-br-[0px] rounded-bl-[0px] border-t-[#b0aba4] border-r-[#b0aba4] border-b-[#b0aba4] border-l-[#b0aba4] border-t-[0.5px] border-r-[0.5px] border-b-[0.5px] border-l-[0.5px]"
-            title="Curator Gate"
+            className="font-mono text-[9px] tracking-widest uppercase text-[#c5c0b8] hover:text-[#8b8780] transition-colors cursor-pointer text-center border border-[#b0aba4] px-2 py-1 focus:outline-none focus:ring-2 focus:ring-black rounded"
+            aria-label="Curator Gate - Admin login"
           >
             ⬡ Curator Gate [admins]
           </button>
-        </div>
+        </nav>
       </div>
     </footer>
   );

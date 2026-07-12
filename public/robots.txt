@@ -1,0 +1,22 @@
+# AYU.VIBEE Robots Policy
+# Allow search engines to crawl and index all pages except admin and terms
+
+User-agent: *
+Allow: /
+Allow: /public/
+
+# Disallow sensitive admin routes
+Disallow: /admin
+Disallow: /gatekeeper
+
+# Disallow private paths
+Disallow: /api/private
+Disallow: /.env*
+Disallow: /config
+Disallow: /secrets
+
+# Crawl delay (optional - consider removing if you want aggressive crawling)
+Crawl-delay: 1
+
+# Sitemap reference
+Sitemap: https://ayuvibee.com/sitemap.xml

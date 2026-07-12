@@ -1,0 +1,64 @@
+{
+  "name": "AYU.VIBEE — Photography Portfolio & Blog",
+  "short_name": "AYU.VIBEE",
+  "description": "Explore stunning photography, visual storytelling, and insights into the art of capturing moments.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#1a1a1a",
+  "background_color": "#f7f4ed",
+  "prefer_related_applications": false,
+  "icons": [
+    {
+      "src": "/favicon.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/og-image.png",
+      "sizes": "1200x630",
+      "type": "image/png",
+      "form_factor": "wide"
+    },
+    {
+      "src": "/og-image.png",
+      "sizes": "540x720",
+      "type": "image/png",
+      "form_factor": "narrow"
+    }
+  ],
+  "categories": ["photography", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "View Portfolio",
+      "short_name": "Portfolio",
+      "description": "View the photography portfolio",
+      "url": "/?view=portfolio",
+      "icons": [{ "src": "/favicon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Read Stories",
+      "short_name": "Stories",
+      "description": "Read photography stories and articles",
+      "url": "/?view=stories",
+      "icons": [{ "src": "/favicon.png", "sizes": "96x96" }]
+    },
+    {
+      "name": "Contact Me",
+      "short_name": "Contact",
+      "description": "Send a message or inquiry",
+      "url": "/?view=contact",
+      "icons": [{ "src": "/favicon.png", "sizes": "96x96" }]
+    }
+  ]
+}
