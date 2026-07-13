@@ -131,16 +131,31 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
     // Submit form
     setIsSubmitting(true);
     try {
-      const response = await fetch("/api/contact", {
+      // Post directly to Formspree — keeps client-side UX intact and avoids our backend email SDK.
+      const payload = {
+        name: formData.name,
+        email: formData.email,
+        message: formData.message,
+        subject: formData.subject,
+        _subject: formData.subject || "Contact form submission",
+      };
+
+      const response = await fetch("https://formspree.io/f/mwvgejwy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
-
+      // Formspree returns a success status when accepted
       if (!response.ok) {
-        setGeneralError(data.error || "Failed to send message. Please try again.");
+        let errMsg = "Failed to send message. Please try again.";
+        try {
+          const errData = await response.json();
+          if (errData && errData.error) errMsg = errData.error;
+        } catch (e) {
+          // ignore parse errors
+        }
+        setGeneralError(errMsg);
         return;
       }
 
