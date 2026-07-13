@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useForm, ValidationError } from "@formspree/react";
 import { validateContactForm, checkRateLimit, recordSubmission, ContactFormData, ContactFormError, sanitizeInput } from "../utils/contactForm";
 
 interface ContactViewProps {
@@ -92,6 +93,24 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
   const [generalError, setGeneralError] = useState("");
   const [rateLimitError, setRateLimitError] = useState("");
 
+  // Formspree hook — form ID only (short id)
+  const [fspState, handleFormspreeSubmit] = useForm("mwvgejwy");
+
+  useEffect(() => {
+    if (fspState.succeeded) {
+      // record and show local UI success
+      recordSubmission();
+      setFormName("");
+      setFormEmail("");
+      setFormSubject("");
+      setFormMessage("");
+      setSubmitted(true);
+      setTimeout(() => setSubmitted(false), 5000);
+    }
+    // mirror submitting state
+    setIsSubmitting(!!fspState.submitting);
+  }, [fspState.succeeded, fspState.submitting]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -127,53 +146,13 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
       setErrors(errorMap);
       return;
     }
-
-    // Submit form
-    setIsSubmitting(true);
+    // All local validation passed — forward to Formspree via their hook
     try {
-      // Post directly to Formspree — keeps client-side UX intact and avoids our backend email SDK.
-      const payload = {
-        name: formData.name,
-        email: formData.email,
-        message: formData.message,
-        subject: formData.subject,
-        _subject: formData.subject || "Contact form submission",
-      };
-
-      const response = await fetch("https://formspree.io/f/mwvgejwy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      // Formspree returns a success status when accepted
-      if (!response.ok) {
-        let errMsg = "Failed to send message. Please try again.";
-        try {
-          const errData = await response.json();
-          if (errData && errData.error) errMsg = errData.error;
-        } catch (e) {
-          // ignore parse errors
-        }
-        setGeneralError(errMsg);
-        return;
-      }
-
-      // Success
-      recordSubmission();
-      setFormName("");
-      setFormEmail("");
-      setFormSubject("");
-      setFormMessage("");
-      setSubmitted(true);
-
-      // Auto-dismiss success message after 5 seconds
-      setTimeout(() => setSubmitted(false), 5000);
+      // The Formspree handler reads form fields from the DOM event.
+      await handleFormspreeSubmit(e as unknown as SubmitEvent);
     } catch (error) {
-      console.error("Contact form error:", error);
+      console.error("Formspree submit error:", error);
       setGeneralError("Failed to send your message. Please check your connection and try again.");
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -321,6 +300,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                 <label className="label-sm">Your Name *</label>
                 <input
                   type="text"
+                  name="name"
                   value={formName}
                   onChange={e => setFormName(e.target.value)}
                   disabled={isSubmitting}
@@ -333,6 +313,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                 <label className="label-sm">Your Email *</label>
                 <input
                   type="email"
+                  name="email"
                   value={formEmail}
                   onChange={e => setFormEmail(e.target.value)}
                   disabled={isSubmitting}
@@ -346,6 +327,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
             <div className="space-y-1.5">
               <label className="label-sm">Subject</label>
               <select 
+                name="subject"
                 value={formSubject} 
                 onChange={e => setFormSubject(e.target.value)} 
                 disabled={isSubmitting}
@@ -364,6 +346,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
             <div className="space-y-1.5">
               <label className="label-sm">Message *</label>
               <textarea
+                name="message"
                 rows={6}
                 value={formMessage}
                 onChange={e => setFormMessage(e.target.value)}
