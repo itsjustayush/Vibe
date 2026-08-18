@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { Photo } from "../types";
 import Carousel from "./Carousel";
+import AsciiHoverImage from "./AsciiHoverImage";
+import Reveal from "./Reveal";
 import ayushPortrait from "../assets/images/ayush-portrait.webp";
 
 interface GalleryCardProps {
@@ -138,16 +140,18 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
     <div className="max-w-6xl mx-auto px-6 py-10">
       
       {/* Editorial Profile Section */}
+      <Reveal>
       <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-center border-b border-[#e5e1d8] pb-16">
         
         {/* Left Side: Editorial Photograph */}
         <div className="md:col-span-5 flex flex-col space-y-4">
           <div className="hero-portrait-frame group relative overflow-hidden border border-[#e5e1d8] p-2 bg-[#fdfcf9] shadow-[12px_12px_0_rgba(24,24,27,0.08)]">
-            <img 
+            <AsciiHoverImage
               src={ayushPortrait}
               alt="Ayush Bhattacharya in a misty rural landscape near Kolkata"
-              className="w-full object-cover aspect-[16/10] md:aspect-[4/5] opacity-[1] grayscale transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+              className="block w-full object-cover aspect-[16/10] md:aspect-[4/5] opacity-[1] grayscale transition-transform duration-500 ease-out group-hover:scale-[1.02]"
               decoding="async"
+              label="Hero portrait ASCII reveal"
             />
             {/* Elegant thin caption */}
             <div className="mt-3.5 flex justify-between items-center font-mono text-[10px] tracking-widest text-[#5f5e59] uppercase px-1">
@@ -193,8 +197,10 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           </div>
         </div>
       </section>
+      </Reveal>
 
       {/* Academic Timeline & Attributes Grid */}
+      <Reveal delay={80}>
       <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 py-16 border-b border-[#e5e1d8]">
         
         {/* Left column: Academic Journey */}
@@ -267,8 +273,10 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           </div>
         </div>
       </section>
+      </Reveal>
 
       {/* Photography Section */}
+      <Reveal delay={140}>
       <section className="py-16">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
           <div className="max-w-xl">
@@ -368,6 +376,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
             {filteredPhotos.map((photo, idx) => (
+              <Reveal key={photo.id || idx} delay={Math.min(idx * 60, 240)} className="h-full">
               <GalleryCard 
                 key={photo.id || idx}
                 photo={photo}
@@ -381,10 +390,12 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                   }).catch(() => {});
                 }}
               />
+              </Reveal>
             ))}
           </div>
         )}
       </section>
+      </Reveal>
  
       {/* Exquisite Lightbox Detail Modal */}
       {(() => {
