@@ -1308,3 +1308,94 @@ img {
 .state-card .spiral-loader {
   opacity: 0.8;
 }
+
+
+/* ── Interactive hero texture layer ─────────────────────────────────────── */
+.ascii-hover-image {
+  isolation: isolate;
+  background: #101010;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.hero-texture-image {
+  position: relative;
+  z-index: 0;
+  display: block;
+  transform-origin: center;
+  will-change: transform, filter;
+  filter: grayscale(0.62) contrast(1.06) saturate(0.82);
+  transition: transform 260ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)), filter 260ms ease-out;
+}
+
+.ascii-hover-image:hover .hero-texture-image {
+  filter: grayscale(0.18) contrast(1.14) saturate(1.06);
+}
+
+.hero-texture-canvas {
+  z-index: 1;
+  opacity: 0.78;
+  mix-blend-mode: screen;
+  background-image: repeating-linear-gradient(0deg, transparent 0, transparent 3px, rgba(255, 255, 255, 0.045) 4px, transparent 5px);
+  background-size: 100% 7px;
+  pointer-events: none;
+}
+
+.ascii-hover-image::after {
+  position: absolute;
+  z-index: 5;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(243, 192, 92, 0.12), transparent 28%, transparent 72%, rgba(255, 255, 255, 0.05)),
+    radial-gradient(circle at 50% 50%, transparent 44%, rgba(8, 8, 8, 0.24) 100%);
+  mix-blend-mode: screen;
+  opacity: 0.72;
+  transition: opacity 220ms ease-out;
+}
+
+.ascii-hover-image:hover::after {
+  opacity: 0.96;
+}
+
+.ascii-hover-hint {
+  opacity: 0.72;
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+
+.ascii-hover-image:hover .ascii-hover-hint {
+  opacity: 1;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 767px), (hover: none) {
+  .ascii-hover-image {
+    cursor: default;
+  }
+
+  .hero-texture-image {
+    filter: grayscale(0.18) contrast(1.05) saturate(0.94);
+  }
+
+  .hero-texture-canvas,
+  .ascii-hover-image::after {
+    opacity: 0.32;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-texture-image,
+  .ascii-hover-hint {
+    transition: none;
+  }
+
+  .hero-texture-image,
+  .ascii-hover-image:hover .hero-texture-image {
+    transform: none !important;
+  }
+
+  .hero-texture-canvas {
+    opacity: 0.25;
+  }
+}
