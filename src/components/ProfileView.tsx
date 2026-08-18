@@ -22,9 +22,9 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
   return (
     <div 
       onClick={() => onClick(photo, currentSlide)}
-      className="group cursor-pointer border border-[#e5e1d8] p-3 bg-white hover:border-black transition-all duration-300 hover:-translate-y-1 block"
+      className="gallery-card group cursor-pointer border border-[var(--border)] p-3 bg-[var(--surface-subtle)] hover:border-[var(--accent)] transition-all duration-300 hover:-translate-y-1 block"
     >
-      <div className="relative overflow-hidden aspect-[16/10] bg-[#f7f4ed]">
+      <div className="gallery-card-media relative overflow-hidden aspect-[16/10] bg-[var(--surface-muted)]">
         <Carousel 
           images={images}
           isNaturalColor={isNaturalColor}
@@ -34,7 +34,7 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
         />
         
         {/* Category Port Badge */}
-        <div className="absolute top-2 left-2 px-2.5 py-1 bg-black text-[#f7f4ed] font-mono text-[9px] tracking-widest uppercase z-10">
+        <div className="gallery-card-badge absolute top-2 left-2 px-2.5 py-1 bg-black text-[#f7f4ed] font-mono text-[9px] tracking-widest uppercase z-10">
           {photo.category}
         </div>
       </div>
@@ -139,11 +139,11 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-10">
+    <main className="page-shell profile-page max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-8 md:py-14">
       
       {/* Editorial Profile Section */}
       <Reveal>
-      <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-center border-b border-[#e5e1d8] pb-16">
+      <section className="profile-hero grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 items-center border-b border-[var(--border)] pb-16">
         
         {/* Left Side: Editorial Photograph */}
         <div className="md:col-span-5 flex flex-col space-y-4">
@@ -207,7 +207,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
 
       {/* Academic Timeline & Attributes Grid */}
       <Reveal delay={80}>
-      <section className="grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 py-16 border-b border-[#e5e1d8]">
+      <section className="profile-context grid grid-cols-1 md:grid-cols-12 gap-10 md:gap-16 py-16 border-b border-[var(--border)]">
         
         {/* Left column: Academic Journey */}
         <div className="md:col-span-7 space-y-8">
@@ -283,8 +283,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
 
       {/* Photography Section */}
       <Reveal delay={140}>
-      <section className="py-16">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
+      <section className="portfolio-exhibit py-16">
+        <div className="portfolio-intro flex flex-col md:flex-row justify-between items-start md:items-end mb-12">
           <div className="max-w-xl">
             <h4 className="font-mono text-[10px] tracking-[0.3em] text-[#5f5e59] uppercase mb-3">CURATED PORTFOLIO</h4>
             <h2 className="font-serif text-3xl font-medium tracking-tight text-black">Capturing the silence between moments</h2>
@@ -296,7 +296,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             href="https://instagram.com/ayu.vibee"
             target="_blank"
             rel="noopener noreferrer"
-            className="mt-6 md:mt-0 px-4 py-2 bg-black text-white font-mono text-[10px] tracking-widest uppercase flex items-center gap-2 hover:bg-neutral-800 transition-all cursor-pointer"
+            className="button-primary mt-6 md:mt-0"
           >
             <span className="material-symbols-outlined text-sm">photo_camera</span>
             <span>FOLLOW @AYU.VIBEE</span>
@@ -304,14 +304,14 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         </div>
 
         {/* Categories Tab Selector */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[#e5e1d8] mb-10 gap-4 pb-1 md:pb-0">
+        <div className="portfolio-toolbar flex flex-col md:flex-row justify-between items-start md:items-center border-b border-[var(--border)] mb-10 gap-4 pb-1 md:pb-0">
           <div className="flex flex-wrap gap-1">
             {categories.map((cat) => (
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 aria-pressed={selectedCategory === cat}
-                className={`px-5 py-3 font-sans text-[10px] tracking-widest uppercase transition-all duration-300 border-b-2 mr-2 cursor-pointer ${
+                className={`filter-pill px-5 py-3 font-sans text-[10px] tracking-widest uppercase transition-all duration-300 border-b-2 mr-2 cursor-pointer ${
                   selectedCategory === cat 
                     ? "border-black text-black font-bold" 
                     : "border-transparent text-[#8b8780] hover:text-black hover:border-black/30"
@@ -325,7 +325,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           {/* Elegant Color Preset Toggle Switch */}
           <button
             onClick={() => setIsNaturalColor(prev => !prev)}
-            className="flex items-center gap-2 px-3 py-1.5 mb-2 md:mb-0 font-mono text-[9px] tracking-widest uppercase border border-[#e5e1d8] hover:border-black bg-white select-none transition-all cursor-pointer rounded-none"
+            className="control-pill flex items-center gap-2 px-3 py-1.5 mb-2 md:mb-0 font-mono text-[9px] tracking-widest uppercase border border-[var(--border)] hover:border-[var(--accent)] bg-[var(--surface-subtle)] select-none transition-all cursor-pointer rounded-full"
             title="Toggle monochromatic or vibrant color feed"
           >
             <span className="material-symbols-outlined text-[13px] text-[#8b8780]">
@@ -337,7 +337,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
 
         {/* Dynamic Tag Filter Section */}
         {allTags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mb-10 items-center justify-start bg-[#fdfcf9] border border-[#e5e1d8] p-4">
+          <div className="tag-filter flex flex-wrap gap-2 mb-10 items-center justify-start bg-[var(--surface-subtle)] border border-[var(--border)] p-4 rounded-xl">
             <span className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase mr-3 flex items-center gap-1.5 font-bold">
               <span className="material-symbols-outlined text-[13px] leading-none">sell</span>
               FILTER EXHIBIT BY TAG:
@@ -345,7 +345,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             <button
               onClick={() => setSelectedTag(null)}
               aria-pressed={selectedTag === null}
-              className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
+              className={`tag-filter-button tag-chip px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-full cursor-pointer ${
                 selectedTag === null
                   ? "bg-black text-[#faf9f6] border-black font-semibold shadow-sm"
                   : "bg-white text-[#5f5e59] border-[#e5e1d8] hover:border-black/50"
@@ -358,7 +358,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                 key={tag}
                 onClick={() => setSelectedTag(tag)}
                   aria-pressed={selectedTag === tag}
-                  className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
+                  className={`tag-filter-button tag-chip px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-full cursor-pointer ${
                     selectedTag === tag
                     ? "bg-black text-[#faf9f6] border-black font-semibold shadow-sm"
                     : "bg-white text-[#5f5e59] border-[#e5e1d8] hover:border-[#8b8780]"
@@ -372,7 +372,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
 
         {/* Gallery Grid */}
         {filteredPhotos.length === 0 ? (
-          <div className="border border-dashed border-[#e5e1d8] py-20 text-center">
+          <div className="empty-state py-20 text-center">
             <span className="material-symbols-outlined text-[#8b8780] text-3xl">photo_album</span>
             <p className="font-serif text-lg text-[#1a1a1a] mt-4">Empty Exhibition Corridor</p>
             <p className="font-mono text-[10px] tracking-widest text-[#8b8780] uppercase mt-2">
@@ -380,7 +380,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-8">
+          <div className="gallery-grid grid grid-cols-1 md:grid-cols-2 gap-8">
             {filteredPhotos.map((photo, idx) => (
               <Reveal key={photo.id || idx} delay={Math.min(idx * 60, 240)} className="h-full">
               <GalleryCard 
@@ -411,8 +411,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           : [selectedPhoto.imageUrl].filter(Boolean);
 
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${selectedPhoto.title} details`}>
-            <div className="bg-[#f7f4ed] w-full max-w-4xl p-6 md:p-8 relative border-0 rounded-none shadow-2xl">
+          <div className="lightbox-backdrop fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${selectedPhoto.title} details`}>
+            <div className="lightbox-panel bg-[var(--background)] text-[var(--foreground)] w-full max-w-5xl p-6 md:p-8 relative border border-[var(--border)] rounded-2xl shadow-2xl">
               
               {/* Close button with high aesthetic focus styling */}
               <button 
@@ -609,6 +609,6 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         );
       })()}
 
-    </div>
+    </main>
   );
 }

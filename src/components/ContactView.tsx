@@ -157,22 +157,17 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
   };
 
   return (
-    <div className="min-h-screen bg-[#f7f4ed] text-[#1a1a1a]">
+    <main className="page-shell contact-page">
 
       {/* ── Hero ──────────────────────────────────────────────────────────── */}
-      <section className="border-b border-[#e5e1d8] px-6 md:px-20 py-16 md:py-24">
-        <div className="max-w-5xl mx-auto">
-          <span className="font-mono text-[9px] tracking-[0.4em] text-[#8b8780] uppercase block mb-4">Correspondence</span>
-          <h1 className="font-serif text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-black leading-none">
-            Let's<br />
-            <em className="font-normal not-italic" style={{ fontVariantLigatures: "none" }}>connect.</em>
-          </h1>
-          <p className="font-serif text-base md:text-lg text-[#5f5e59] mt-6 max-w-md leading-relaxed">
-            Open to editorial collaborations, print licensing, creative partnerships, and genuine conversations about light, form &amp; architecture.
-          </p>
+      <section className="page-hero page-hero--contact max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
+        <div>
+          <div className="eyebrow-row"><span>Correspondence</span><span className="eyebrow-dot" aria-hidden="true" /><span>Open channel</span></div>
+          <h1 className="display-title mt-4">Let&apos;s<br /><em className="not-italic">connect.</em></h1>
+          <p className="page-hero-copy mt-6">Open to editorial collaborations, print licensing, creative partnerships, and genuine conversations about light, form &amp; architecture.</p>
 
           {/* Availability badge */}
-          <div className="mt-8 flex items-center gap-3">
+          <div className="mt-8 flex items-center gap-3 rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] px-4 py-3 w-fit">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0"></span>
             <span className="font-mono text-[10px] uppercase tracking-widest text-[#5f5e59]">
               Available for collaborations &nbsp;·&nbsp; Response within 48 hrs &nbsp;·&nbsp; Kolkata, India (IST)
@@ -182,8 +177,8 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
       </section>
 
       {/* ── Socials Grid ─────────────────────────────────────────────────── */}
-      <section className="px-6 md:px-20 py-14 md:py-20 border-b border-[#e5e1d8]">
-        <div className="max-w-5xl mx-auto">
+      <section className="contact-section max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-14 md:py-20">
+        <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-8">
             <span className="font-mono text-[9px] uppercase tracking-[0.35em] text-[#8b8780]">Platforms</span>
             <div className="flex-1 border-b border-[#e5e1d8] mx-6"></div>
@@ -197,7 +192,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
                 href={s.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className={`group bg-white border border-[#e5e1d8] p-6 flex flex-col gap-4 transition-all duration-200 ${s.accent} hover:shadow-sm`}
+                className={`contact-channel group ${s.accent}`}
               >
                 <div className="flex items-start justify-between">
                   <div className={`p-2.5 bg-[#f7f4ed] border border-[#e5e1d8] text-[#1a1a1a] group-hover:border-current transition-colors`}>
@@ -225,8 +220,8 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
       </section>
 
       {/* ── Contact Form ─────────────────────────────────────────────────── */}
-      <section className="px-6 md:px-20 py-14 md:py-20 border-b border-[#e5e1d8]">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-20 items-start">
+      <section className="contact-section contact-form-section max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-14 md:py-20">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[0.8fr_1.2fr] gap-8 md:gap-16 items-start">
 
           {/* Left — info */}
           <div className="space-y-8">
@@ -264,7 +259,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
           </div>
 
           {/* Right — form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} className="contact-form space-y-5">
             {submitted && (
               <div className="p-4 bg-emerald-50 border border-emerald-300 flex items-start gap-3">
                 <span className="material-symbols-outlined text-emerald-600 text-xl flex-shrink-0 mt-0.5">check_circle</span>
@@ -387,7 +382,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
       </section>
 
       {/* ── Bottom CTA strip ─────────────────────────────────────────────── */}
-      <section className="px-6 md:px-20 py-12">
+      <section className="contact-bottom max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 py-12">
         <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
           <div>
             <p className="font-mono text-[9px] uppercase tracking-widest text-[#8b8780]">Based in Kolkata, India</p>
@@ -410,6 +405,6 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
         </div>
       </section>
 
-    </div>
+    </main>
   );
 }

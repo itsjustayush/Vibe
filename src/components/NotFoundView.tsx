@@ -8,9 +8,9 @@ interface NotFoundViewProps {
 
 export default function NotFoundView({ onReturn }: NotFoundViewProps) {
   return (
-    <div className="fixed inset-0 z-50 bg-[#f7f4ed] overflow-y-auto flex flex-col justify-between">
+    <div className="state-screen fixed inset-0 z-50 bg-[var(--background)] text-[var(--foreground)] overflow-y-auto flex flex-col justify-between">
 
-      <header className="px-6 md:px-12 py-5 flex justify-between items-center border-b border-[#e5e1d8]">
+      <header className="state-header px-4 sm:px-6 lg:px-10 py-5 flex justify-between items-center border-b border-[var(--border)]">
         <div className="flex items-center space-x-3 text-[#8b8780]">
           <span className="w-1.5 h-1.5 bg-amber-400 rounded-none animate-pulse"></span>
           <span className="font-mono text-[9px] tracking-widest uppercase">SYSTEM: PAGE NOT FOUND</span>
@@ -23,7 +23,7 @@ export default function NotFoundView({ onReturn }: NotFoundViewProps) {
         </button>
       </header>
 
-      <main className="max-w-sm w-full mx-auto px-6 py-10 flex flex-col items-center text-center">
+      <main className="state-card max-w-sm w-full mx-auto px-6 py-10 flex flex-col items-center text-center">
 
         <div className="mb-8">
           <AyuVibeeLogo size="lg" theme="dark" />
@@ -72,7 +72,7 @@ export default function NotFoundView({ onReturn }: NotFoundViewProps) {
           <div className="space-y-3 mb-6">
             <button
               onClick={onReturn}
-              className="w-full py-4 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+              className="button-primary w-full"
             >
               ← RETURN TO PORTFOLIO
             </button>
@@ -84,7 +84,7 @@ export default function NotFoundView({ onReturn }: NotFoundViewProps) {
         </motion.div>
       </main>
 
-      <footer className="px-6 md:px-12 py-5 border-t border-[#e5e1d8] flex justify-between items-center text-[#8b8780]">
+      <footer className="state-footer px-4 sm:px-6 lg:px-10 py-5 border-t border-[var(--border)] flex justify-between items-center text-[var(--muted-foreground)]">
         <div className="flex items-center gap-1.5">
           <span className="w-1 h-1 bg-amber-400 rounded-full"></span>
           <span className="font-mono text-[8px] uppercase tracking-widest">Route Not Resolved</span>

@@ -4,6 +4,7 @@ import ProfileView from "./components/ProfileView";
 import StoriesView from "./components/StoriesView";
 import TermsView from "./components/TermsView";
 import ContactView from "./components/ContactView";
+import AboutView from "./components/AboutView";
 import GateKeeper from "./components/GateKeeper";
 import AdminConsole from "./components/AdminConsole";
 import AccessDeniedView from "./components/AccessDeniedView";
@@ -212,36 +213,8 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -15 }}
               transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-              className="max-w-2xl mx-auto px-6 py-16 space-y-12"
             >
-              <div className="border-b border-[#e5e1d8] pb-8 text-center">
-                <span className="font-mono text-[9px] tracking-[0.3em] text-[#8b8780] uppercase">ACADEMIC PHILOSOPHY</span>
-                <h1 className="font-serif text-3xl md:text-5xl font-medium tracking-tight text-black mt-2">Editorial About</h1>
-              </div>
-
-              <section className="space-y-6 text-base font-serif text-[#1a1a1a] leading-relaxed">
-                <p className="indent-8">
-                  Welcome to the digital atelier. This space belongs to <strong className="font-bold">Ayush Bhattacharya</strong>, a student pursuing rigorous higher-secondary education integrated with deep foundational studies in system engineering and low-key film-based capture curation.
-                </p>
-                <p>
-                  As an aspiring engineer preparing for competitive admissions corridors, I spend major periods within standard mathematics blocks—deconstructing geometry, analyzing limits, and exploring kinematic trajectories of bodies in space. Visual design and photography remain a serene sanctuary for this analytical logic.
-                </p>
-                <blockquote className="border-l border-black pl-5 italic my-6 text-[15px] text-[#5f5e59]">
-                  "There is no true conflict between binary mechanics and artistic capture. Both seek underlying structures—the pure coordinates that make a physical or digital model feel balanced, stable, and true."
-                </blockquote>
-                <p>
-                  Built during early summer 2026, <span className="font-mono text-xs">ayu.vibee</span> leverages high-density modern Firebase servers for immediate archival sync, coupled with deep Gemini modeling frameworks to proxy real visual asset understanding on-the-fly.
-                </p>
-              </section>
-
-              {/* Sanskrit Accent Block */}
-              <div className="p-6 bg-black/[0.02] border border-black/10 text-center space-y-3">
-                <h5 className="font-mono text-[9px] tracking-widest text-[#8b8780] uppercase">MEDITATION OF CLARITY</h5>
-                <p className="font-serif italic text-lg text-black/80">
-                  "चित्तवृत्तिनिरोधः — Yoga is the quietude of visual fluctuating patterns."
-                </p>
-                <span className="font-mono text-[8px] text-black/40 block">Patanjali Sanskrit Sutra (1.2)</span>
-              </div>
+              <AboutView />
             </motion.div>
           )}
 

@@ -9,9 +9,9 @@ interface AccessDeniedViewProps {
 
 export default function AccessDeniedView({ attemptedEmail, onReturn }: AccessDeniedViewProps) {
   return (
-    <div className="fixed inset-0 z-50 bg-[#f7f4ed] overflow-y-auto flex flex-col justify-between">
+    <div className="state-screen fixed inset-0 z-50 bg-[var(--background)] text-[var(--foreground)] overflow-y-auto flex flex-col justify-between">
 
-      <header className="px-6 md:px-12 py-5 flex justify-between items-center border-b border-[#e5e1d8]">
+      <header className="state-header px-4 sm:px-6 lg:px-10 py-5 flex justify-between items-center border-b border-[var(--border)]">
         <div className="flex items-center space-x-3 text-[#8b8780]">
           <span className="w-1.5 h-1.5 bg-red-500 rounded-none animate-pulse"></span>
           <span className="font-mono text-[9px] tracking-widest uppercase">GATE_STATUS: ACCESS DENIED</span>
@@ -24,7 +24,7 @@ export default function AccessDeniedView({ attemptedEmail, onReturn }: AccessDen
         </button>
       </header>
 
-      <main className="max-w-sm w-full mx-auto px-6 py-10 flex flex-col items-center text-center">
+      <main className="state-card max-w-sm w-full mx-auto px-6 py-10 flex flex-col items-center text-center">
 
         <div className="mb-8">
           <AyuVibeeLogo size="lg" theme="dark" />
@@ -74,7 +74,7 @@ export default function AccessDeniedView({ attemptedEmail, onReturn }: AccessDen
           {/* Return button */}
           <button
             onClick={onReturn}
-            className="w-full py-4 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:bg-[#1a1a1a] transition-colors cursor-pointer"
+            className="button-primary w-full"
           >
             ← RETURN TO PORTFOLIO
           </button>
@@ -85,7 +85,7 @@ export default function AccessDeniedView({ attemptedEmail, onReturn }: AccessDen
         </motion.div>
       </main>
 
-      <footer className="px-6 md:px-12 py-5 border-t border-[#e5e1d8] flex justify-between items-center text-[#8b8780]">
+      <footer className="state-footer px-4 sm:px-6 lg:px-10 py-5 border-t border-[var(--border)] flex justify-between items-center text-[var(--muted-foreground)]">
         <div className="flex items-center gap-1.5">
           <span className="w-1 h-1 bg-red-400 rounded-full"></span>
           <span className="font-mono text-[8px] uppercase tracking-widest">Unauthorised Access Blocked</span>

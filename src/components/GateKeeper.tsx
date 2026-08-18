@@ -48,9 +48,9 @@ export default function GateKeeper({ onUnlock, onDenied, onClose }: GateKeeperPr
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#f7f4ed] overflow-y-auto flex flex-col justify-between">
+    <div className="state-screen fixed inset-0 z-50 bg-[var(--background)] text-[var(--foreground)] overflow-y-auto flex flex-col justify-between">
 
-      <header className="px-6 md:px-12 py-5 flex justify-between items-center border-b border-[#e5e1d8]">
+      <header className="state-header px-4 sm:px-6 lg:px-10 py-5 flex justify-between items-center border-b border-[var(--border)]">
         <div className="flex items-center space-x-3 text-[#8b8780]">
           <span className="w-1.5 h-1.5 bg-amber-500 rounded-none animate-pulse"></span>
           <span className="font-mono text-[9px] tracking-widest uppercase">
@@ -66,7 +66,7 @@ export default function GateKeeper({ onUnlock, onDenied, onClose }: GateKeeperPr
         </button>
       </header>
 
-      <main className="max-w-sm w-full mx-auto px-6 py-10 flex flex-col items-center">
+      <main className="state-card max-w-sm w-full mx-auto px-6 py-10 flex flex-col items-center">
 
         <div className="mb-8">
           <AyuVibeeLogo size="lg" theme="dark" />
@@ -110,7 +110,7 @@ export default function GateKeeper({ onUnlock, onDenied, onClose }: GateKeeperPr
         <button
           onClick={handleGoogleSignIn}
           disabled={loading}
-          className="w-full py-4 bg-white border border-[#1a1a1a] hover:bg-black hover:text-white text-black font-sans font-medium text-[11px] tracking-widest uppercase flex items-center justify-center gap-3 cursor-pointer transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed group"
+          className="button-primary w-full disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-4 h-4 flex-shrink-0 group-hover:brightness-0 group-hover:invert transition-all" viewBox="0 0 24 24">
             <path fill="#EA4335" d="M12 5.04c1.66 0 3.2.57 4.38 1.69l3.27-3.27C17.67 1.47 15 0 12 0 7.37 0 3.39 2.67 1.45 6.57l3.82 2.96c.9-2.7 3.42-4.49 6.73-4.49z" />
@@ -126,7 +126,7 @@ export default function GateKeeper({ onUnlock, onDenied, onClose }: GateKeeperPr
         </p>
       </main>
 
-      <footer className="px-6 md:px-12 py-5 border-t border-[#e5e1d8] flex flex-col md:flex-row justify-between items-center text-[#8b8780] gap-3">
+      <footer className="state-footer px-4 sm:px-6 lg:px-10 py-5 border-t border-[var(--border)] flex flex-col md:flex-row justify-between items-center text-[var(--muted-foreground)] gap-3">
         <div className="flex flex-wrap gap-5 items-center justify-center">
           <div className="flex items-center gap-1.5">
             <span className="w-1 h-1 bg-emerald-500 rounded-full"></span>
