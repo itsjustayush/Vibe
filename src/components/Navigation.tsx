@@ -31,27 +31,27 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
   return (
     <>
       {/* ── Top Navbar ─────────────────────────────────────────────────── */}
-      <nav className="sticky top-0 z-40 w-full border-b border-[#e5e1d8] bg-[#f7f4ed]/90 backdrop-blur-md px-6 md:px-16 lg:px-20 py-4 flex items-center justify-between" role="navigation" aria-label="Main navigation">
+      <nav className="sticky top-0 z-40 w-full border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_88%,transparent)] backdrop-blur-xl px-4 sm:px-6 lg:px-10 py-3.5 flex items-center justify-between" role="navigation" aria-label="Main navigation">
 
         {/* Brand */}
         <button
           onClick={() => handleNav("portfolio")}
-          className="cursor-pointer hover:opacity-80 transition-opacity py-1 z-50 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black rounded"
+          className="group cursor-pointer py-1 z-50 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[var(--ring)] rounded-md transition-transform duration-200 hover:-translate-y-0.5"
           aria-label="AYU.VIBEE Home"
         >
           <AyuVibeeLogo size="sm" theme={isDark ? "light" : "dark"} className="!items-start" />
         </button>
 
         {/* Desktop Links */}
-        <div className="hidden md:flex items-center space-x-8 lg:space-x-12">
+        <div className="hidden md:flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--surface-subtle)]/75 p-1 shadow-[0_4px_24px_var(--shadow-ink)]">
           {navLinks.map(link => (
             <button
               key={link.id}
               onClick={() => handleNav(link.id)}
-              className={`font-sans text-xs tracking-[0.2em] uppercase cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-black rounded px-1 py-1 ${
+              className={`min-h-10 rounded-full px-4 py-2 font-sans text-[10px] font-semibold tracking-[0.18em] uppercase cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-[var(--ring)] ${
                 currentView === link.id
-                  ? "font-bold text-black border-b border-black pb-0.5"
-                  : "text-[#5f5e59] hover:text-black"
+                  ? "bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_3px_12px_var(--shadow-ink)]"
+                  : "text-[var(--muted-foreground)] hover:bg-[var(--accent-soft)] hover:text-[var(--foreground)]"
               }`}
               aria-current={currentView === link.id ? "page" : undefined}
             >
@@ -61,7 +61,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
         </div>
 
         {/* Desktop Right Actions */}
-        <div className="hidden md:flex items-center space-x-3">
+        <div className="hidden md:flex items-center gap-2">
           <ThemeToggle />
           {isAdmin && (
             <>
@@ -84,7 +84,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 
         {/* Mobile Hamburger */}
         <button
-          className="md:hidden z-50 relative p-1.5 cursor-pointer text-[#1a1a1a]"
+          className="md:hidden z-50 relative inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--surface-subtle)] text-[var(--foreground)] shadow-[0_3px_12px_var(--shadow-ink)]"
           onClick={() => setMobileOpen(prev => !prev)}
           aria-label="Toggle menu"
         >
@@ -96,14 +96,14 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 
       {/* ── Mobile Drawer ──────────────────────────────────────────────── */}
       {mobileOpen && (
-        <div className="fixed inset-0 z-30 bg-[#f7f4ed] flex flex-col pt-20 px-8 pb-10 md:hidden overflow-y-auto">
+        <div className="fixed inset-0 z-30 bg-[var(--background)] text-[var(--foreground)] flex flex-col pt-20 px-6 pb-10 md:hidden overflow-y-auto">
           <nav className="flex flex-col gap-2 mt-4">
             {navLinks.map(link => (
               <button
                 key={link.id}
                 onClick={() => handleNav(link.id)}
-                className={`text-left py-4 border-b border-[#e5e1d8] font-sans text-lg tracking-[0.1em] uppercase cursor-pointer transition-colors ${
-                  currentView === link.id ? "text-black font-bold" : "text-[#5f5e59]"
+                className={`min-h-14 text-left rounded-xl px-4 border border-transparent font-sans text-xl tracking-[0.04em] uppercase cursor-pointer transition-all ${
+                  currentView === link.id ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "text-[var(--muted-foreground)] hover:bg-[var(--surface-subtle)] hover:border-[var(--border)]"
                 }`}
               >
                 {link.label}
@@ -169,8 +169,8 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
   const { theme } = useTheme();
 
   return (
-    <footer className="w-full border-t border-[#e5e1d8] bg-[#f7f4ed] px-6 md:px-16 lg:px-20 py-10 mt-20" role="contentinfo">
-      <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
+    <footer className="w-full border-t border-[var(--border)] bg-[var(--surface-subtle)] px-4 sm:px-6 lg:px-10 py-14 mt-24" role="contentinfo">
+      <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-[1fr_auto] gap-10 items-start">
 
         {/* Brand */}
         <div className="flex flex-col gap-2">
@@ -184,7 +184,7 @@ export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) 
         </div>
 
         {/* Links */}
-        <nav className="flex flex-wrap gap-x-8 gap-y-3" aria-label="Footer navigation">
+        <nav className="flex max-w-lg flex-wrap justify-start md:justify-end gap-2" aria-label="Footer navigation">
           {[
             { label: "Portfolio", view: "portfolio" },
             { label: "Stories", view: "stories" },
