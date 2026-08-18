@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { Photo } from "../types";
 import Carousel from "./Carousel";
 import AsciiHoverImage from "./AsciiHoverImage";
+import BlurText from "./BlurText";
 import Reveal from "./Reveal";
+import RotatingText from "./RotatingText";
 import ayushPortrait from "../assets/images/ayush-portrait.webp";
 
 interface GalleryCardProps {
@@ -172,9 +174,13 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         {/* Right Side: Biographic Text */}
         <div className="md:col-span-7 flex flex-col justify-center space-y-8">
           <div>
-            <h4 className="font-mono text-[10px] tracking-[0.3em] text-[#5f5e59] uppercase mb-2">FOUNDER & SCHOLAR</h4>
-            <h1 className="font-serif text-3xl md:text-4xl text-[#1a1a1a] tracking-tight leading-[1.125] font-medium">
-              Ayush Bhattacharya is a<br />seeker of elegant solutions.
+            <div className="mb-3 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[10px] tracking-[0.28em] text-[var(--muted-foreground)] uppercase">
+              <span>FOUNDER & SCHOLAR</span>
+              <span className="text-[var(--accent)]">/</span>
+              <RotatingText texts={["ENGINEERING MIND", "VISUAL STORYTELLER", "SYSTEMS THINKER"]} />
+            </div>
+            <h1 className="font-serif text-4xl md:text-5xl text-[var(--foreground)] tracking-[-0.035em] leading-[0.98] font-medium">
+              <BlurText text="Ayush Bhattacharya is a seeker of elegant solutions." delay={70} animateBy="words" className="max-w-2xl" />
             </h1>
             <p className="font-sans text-[13px] leading-relaxed text-[#5f5e59] mt-4 max-w-xl">
               Currently a Class 12 student and JEE aspirant, balancing the rigors of engineering preparation with a profound curiosity for computer science and creative visual expression.

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { Moon, Sun } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import AyuVibeeLogo from "./AyuVibeeLogo";
+import ThemeToggle from "./ThemeToggle";
 
 interface NavigationProps {
   currentView: string;
@@ -13,7 +13,7 @@ interface NavigationProps {
 
 export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmin, onLogout }: NavigationProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+  const { theme } = useTheme();
   const isDark = theme === "dark";
 
   const navLinks = [
@@ -62,17 +62,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 
         {/* Desktop Right Actions */}
         <div className="hidden md:flex items-center space-x-3">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="theme-toggle inline-flex min-h-11 items-center gap-2 border border-[#e5e1d8] px-3 py-2 font-mono text-[10px] tracking-widest uppercase text-[#5f5e59] transition-colors hover:border-black hover:text-black"
-            aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-            aria-pressed={isDark}
-            title={`Switch to ${isDark ? "light" : "dark"} mode`}
-          >
-            {isDark ? <Sun aria-hidden="true" size={15} strokeWidth={1.7} /> : <Moon aria-hidden="true" size={15} strokeWidth={1.7} />}
-            <span>{isDark ? "Light" : "Dark"}</span>
-          </button>
+          <ThemeToggle />
           {isAdmin && (
             <>
               <button
@@ -122,19 +112,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
           </nav>
 
           <div className="mt-8 space-y-3">
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="theme-toggle flex min-h-12 w-full items-center justify-between border border-[#e5e1d8] px-4 py-3 font-mono text-[11px] tracking-widest uppercase text-[#5f5e59] transition-colors hover:border-black hover:text-black"
-              aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
-              aria-pressed={isDark}
-            >
-              <span>Appearance</span>
-              <span className="inline-flex items-center gap-2">
-                {isDark ? <Sun aria-hidden="true" size={16} strokeWidth={1.7} /> : <Moon aria-hidden="true" size={16} strokeWidth={1.7} />}
-                <span>{isDark ? "Light mode" : "Dark mode"}</span>
-              </span>
-            </button>
+            <ThemeToggle compact />
             {isAdmin ? (
               <>
                 <button
