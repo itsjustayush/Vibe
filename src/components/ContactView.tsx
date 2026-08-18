@@ -149,7 +149,7 @@ export default function ContactView({ onNavigate }: ContactViewProps) {
     // All local validation passed — forward to Formspree via their hook
     try {
       // The Formspree handler reads form fields from the DOM event.
-      await handleFormspreeSubmit(e as unknown as SubmitEvent);
+      await handleFormspreeSubmit(e as React.FormEvent<HTMLFormElement>);
     } catch (error) {
       console.error("Formspree submit error:", error);
       setGeneralError("Failed to send your message. Please check your connection and try again.");

@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { generateWebsiteSchema, generatePhotographerSchema } from "./seo/metadata";
 import { observeWebVitals, setupLazyLoading, preconnect } from "./utils/performance";
 import { trackPageView } from "./hooks/useAnalytics";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 export default function App() {
   const [currentView, setCurrentView] = useState<string>("portfolio");
@@ -150,7 +151,8 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f4ed] overflow-x-hidden text-[#1a1a1a] flex flex-col justify-between selection:bg-neutral-900 selection:text-white">
+    <ThemeProvider>
+      <div className="min-h-screen bg-background overflow-x-hidden text-foreground flex flex-col justify-between selection:bg-neutral-900 selection:text-white">
       {/* SEO Head Component - manages meta tags and schema markup */}
       <SEOHead 
         page={currentView} 
@@ -337,6 +339,7 @@ export default function App() {
         />
       )}
 
-    </div>
+      </div>
+    </ThemeProvider>
   );
 }

@@ -3,56 +3,179 @@
 @theme {
   --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Playfair Display", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-ring: var(--ring);
 }
 
-/* Custom styles for professional scrollbar and styles */
-::-webkit-scrollbar {
-  width: 5px;
+:root {
+  --background: #f7f4ed;
+  --foreground: #1a1a1a;
+  --card: #fdfcf9;
+  --card-foreground: #1a1a1a;
+  --primary: #18181b;
+  --primary-foreground: #faf9f6;
+  --muted-foreground: #5f5e59;
+  --border: #e5e1d8;
+  --ring: #18181b;
+  --surface-subtle: #faf9f6;
+  --surface-muted: #f1eee7;
+  --shadow-ink: rgba(24, 24, 27, 0.08);
 }
-::-webkit-scrollbar-track {
-  background: #f7f4ed;
+
+.dark {
+  --background: #111113;
+  --foreground: #f5f1e8;
+  --card: #1a1a1e;
+  --card-foreground: #f5f1e8;
+  --primary: #f5f1e8;
+  --primary-foreground: #111113;
+  --muted-foreground: #b9b4aa;
+  --border: #3b3a40;
+  --ring: #f5f1e8;
+  --surface-subtle: #1c1c21;
+  --surface-muted: #24242a;
+  --shadow-ink: rgba(0, 0, 0, 0.28);
 }
-::-webkit-scrollbar-thumb {
-  background: #1a1a1a;
-  border-radius: 0px;
+
+html {
+  background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
-  font-family: var(--font-sans);
-  background-color: #f7f4ed;
-  color: #1a1a1a;
+  min-width: 320px;
+  margin: 0;
   overflow-x: hidden;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
+  transition: background-color 180ms ease-out, color 180ms ease-out;
 }
 
-/* Base custom classes to match Aesthete */
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+[role="button"]:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 3px;
+}
+
+button:not(:disabled),
+a[href],
+[role="button"]:not([aria-disabled="true"]) {
+  cursor: pointer;
+}
+
+.theme-toggle {
+  transition: background-color 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out, transform 160ms ease-out;
+}
+
+.theme-toggle:active {
+  transform: scale(0.97);
+}
+
+/* Dark-mode bridges for the existing editorial utility classes. These keep the
+   app's established layout and feature logic intact while making every view
+   readable when the root theme changes. */
+.dark [class*="bg-[#f7f4ed]"],
+.dark [class*="bg-[#faf9f6]"],
+.dark [class*="bg-[#fdfcf9]"],
+.dark [class*="bg-[#fcfbfa]"],
+.dark [class~="bg-white"],
+.dark [class~="bg-neutral-50"],
+.dark [class~="bg-neutral-100"] {
+  background-color: var(--surface-subtle) !important;
+}
+
+.dark [class~="bg-black"] {
+  background-color: var(--primary) !important;
+}
+
+.dark [class~="text-white"],
+.dark [class*="text-[#f7f4ed]"],
+.dark [class*="text-[#faf9f6]"] {
+  color: var(--primary-foreground) !important;
+}
+
+.dark [class~="text-black"],
+.dark [class*="text-[#1a1a1a]"] {
+  color: var(--foreground) !important;
+}
+
+.dark [class*="text-[#5f5e59]"],
+.dark [class*="text-[#8b8780]"],
+.dark [class*="text-[#a09e99]"],
+.dark [class*="text-[#c5c0b8]"] {
+  color: var(--muted-foreground) !important;
+}
+
+.dark [class*="border-[#e5e1d8]"],
+.dark [class*="border-[#b0aba4]"],
+.dark [class*="border-black"] {
+  border-color: var(--border) !important;
+}
+
+.dark [class*="bg-black/5"],
+.dark [class*="bg-black/[0.02]"] {
+  background-color: var(--surface-muted) !important;
+}
+
+.dark .hero-portrait-frame {
+  background-color: var(--surface-subtle) !important;
+  box-shadow: 12px 12px 0 var(--shadow-ink);
+}
+
+.dark .theme-toggle:hover,
+.dark [class*="hover:bg-black"]:hover {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+/* Custom editorial helpers. */
 .cubic-transition {
-  transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1), opacity 300ms ease-out, border-color 180ms ease-out, background-color 180ms ease-out;
 }
 
-/* Admin utility classes */
 .label-sm {
-  font-family: var(--font-mono, monospace);
+  display: block;
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
   font-size: 9px;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: #5f5e59;
-  display: block;
 }
 
 .field {
   width: 100%;
   padding: 8px 12px;
-  border: 1px solid #e5e1d8;
-  background: #faf9f6;
+  border: 1px solid var(--border);
+  outline: none;
+  background: var(--surface-subtle);
+  color: var(--foreground);
   font-family: var(--font-sans);
   font-size: 12px;
-  color: #1a1a1a;
-  outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 160ms ease-out, background-color 160ms ease-out;
 }
 
 .field:focus {
-  border-color: #1a1a1a;
+  border-color: var(--ring);
 }
 
 .field option {
@@ -77,7 +200,7 @@ body {
   position: absolute;
   width: 40%;
   height: 40%;
-  border: 1px solid rgba(0, 0, 0, 0.1);
+  border: 1px solid color-mix(in srgb, var(--foreground) 12%, transparent);
   border-radius: 100% 0% 100% 0%;
   transform-origin: center center;
   animation: spiral-rotate 12s infinite cubic-bezier(0.4, 0, 0.2, 1);
@@ -99,13 +222,13 @@ body {
 .loader-core {
   width: 8px;
   height: 8px;
-  background: black;
-  border-radius: 50%;
   z-index: 1;
+  border-radius: 50%;
+  background: var(--foreground);
   opacity: 0.15;
 }
 
-/* ── Image Protection Layer ───────────────────────────────────────────────── */
+/* Image protection layer retained from the original app. */
 img {
   -webkit-touch-callout: none;
   -webkit-user-drag: none;
@@ -119,3 +242,13 @@ img {
   pointer-events: none;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

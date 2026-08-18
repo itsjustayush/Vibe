@@ -2,12 +2,16 @@ import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI } from "@google/genai";
-import * as brevo from "brevo";
+import * as brevo from "sib-api-v3-sdk";
 import { initializeApp, cert } from "firebase-admin/app";
 import { getFirestore } from "firebase-admin/firestore";
 
 let aiClient: GoogleGenAI | null = null;
-let brevoClient: brevo.TransactionalEmailsApi | null = null;
+type BrevoTransactionalClient = {
+  sendTransacEmail: (email: unknown) => Promise<unknown>;
+};
+
+let brevoClient: BrevoTransactionalClient | null = null;
 let db: any = null;
 
 // Initialize Firestore
@@ -35,7 +39,7 @@ function getDb() {
 }
 
 // Initialize Brevo Email Client
-function getBrevoClient(): brevo.TransactionalEmailsApi {
+function getBrevoClient(): BrevoTransactionalClient {
   if (!brevoClient) {
     const apiKey = process.env.BREVO_API_KEY;
     if (!apiKey) {

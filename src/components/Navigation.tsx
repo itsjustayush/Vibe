@@ -1,4 +1,6 @@
-import React, { useState } from "react";
+import { useState } from "react";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "../contexts/ThemeContext";
 import AyuVibeeLogo from "./AyuVibeeLogo";
 
 interface NavigationProps {
@@ -11,6 +13,8 @@ interface NavigationProps {
 
 export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmin, onLogout }: NavigationProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { theme, toggleTheme } = useTheme();
+  const isDark = theme === "dark";
 
   const navLinks = [
     { id: "portfolio", label: "Portfolio" },
@@ -35,7 +39,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
           className="cursor-pointer hover:opacity-80 transition-opacity py-1 z-50 relative focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black rounded"
           aria-label="AYU.VIBEE Home"
         >
-          <AyuVibeeLogo size="sm" theme="dark" className="!items-start" />
+          <AyuVibeeLogo size="sm" theme={isDark ? "light" : "dark"} className="!items-start" />
         </button>
 
         {/* Desktop Links */}
@@ -58,6 +62,17 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 
         {/* Desktop Right Actions */}
         <div className="hidden md:flex items-center space-x-3">
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="theme-toggle inline-flex min-h-11 items-center gap-2 border border-[#e5e1d8] px-3 py-2 font-mono text-[10px] tracking-widest uppercase text-[#5f5e59] transition-colors hover:border-black hover:text-black"
+            aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+            aria-pressed={isDark}
+            title={`Switch to ${isDark ? "light" : "dark"} mode`}
+          >
+            {isDark ? <Sun aria-hidden="true" size={15} strokeWidth={1.7} /> : <Moon aria-hidden="true" size={15} strokeWidth={1.7} />}
+            <span>{isDark ? "Light" : "Dark"}</span>
+          </button>
           {isAdmin && (
             <>
               <button
@@ -107,6 +122,19 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
           </nav>
 
           <div className="mt-8 space-y-3">
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="theme-toggle flex min-h-12 w-full items-center justify-between border border-[#e5e1d8] px-4 py-3 font-mono text-[11px] tracking-widest uppercase text-[#5f5e59] transition-colors hover:border-black hover:text-black"
+              aria-label={`Switch to ${isDark ? "light" : "dark"} mode`}
+              aria-pressed={isDark}
+            >
+              <span>Appearance</span>
+              <span className="inline-flex items-center gap-2">
+                {isDark ? <Sun aria-hidden="true" size={16} strokeWidth={1.7} /> : <Moon aria-hidden="true" size={16} strokeWidth={1.7} />}
+                <span>{isDark ? "Light mode" : "Dark mode"}</span>
+              </span>
+            </button>
             {isAdmin ? (
               <>
                 <button
@@ -160,13 +188,15 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
 }
 
 export function Footer({ onNavigate, onOpenGate }: { onNavigate: (view: string) => void; onOpenGate: () => void }) {
+  const { theme } = useTheme();
+
   return (
     <footer className="w-full border-t border-[#e5e1d8] bg-[#f7f4ed] px-6 md:px-16 lg:px-20 py-10 mt-20" role="contentinfo">
       <div className="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-start md:items-center gap-8">
 
         {/* Brand */}
         <div className="flex flex-col gap-2">
-          <AyuVibeeLogo size="sm" theme="dark" />
+          <AyuVibeeLogo size="sm" theme={theme === "dark" ? "light" : "dark"} />
           <p className="font-sans text-[9px] tracking-widest uppercase text-[#a09e99]">
             © {new Date().getFullYear()} AYU.VIBEE Photography & Editorial. All rights reserved.
           </p>

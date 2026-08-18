@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Photo } from "../types";
 import Carousel from "./Carousel";
-import ayushPortrait from "../assets/images/ayush-portrait.png";
+import ayushPortrait from "../assets/images/ayush-portrait.webp";
 
 interface GalleryCardProps {
   photo: Photo;
@@ -142,11 +142,12 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
         
         {/* Left Side: Editorial Photograph */}
         <div className="md:col-span-5 flex flex-col space-y-4">
-          <div className="relative border border-[#e5e1d8] p-2 bg-[#fdfcf9]">
+          <div className="hero-portrait-frame group relative overflow-hidden border border-[#e5e1d8] p-2 bg-[#fdfcf9] shadow-[12px_12px_0_rgba(24,24,27,0.08)]">
             <img 
               src={ayushPortrait}
-              alt="Ayush Bhattacharya"
-              className="w-full object-cover aspect-[4/5] opacity-[1] grayscale"
+              alt="Ayush Bhattacharya in a misty rural landscape near Kolkata"
+              className="w-full object-cover aspect-[16/10] md:aspect-[4/5] opacity-[1] grayscale transition-transform duration-500 ease-out group-hover:scale-[1.02]"
+              decoding="async"
             />
             {/* Elegant thin caption */}
             <div className="mt-3.5 flex justify-between items-center font-mono text-[10px] tracking-widest text-[#5f5e59] uppercase px-1">
@@ -295,6 +296,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               <button
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
+                aria-pressed={selectedCategory === cat}
                 className={`px-5 py-3 font-sans text-[10px] tracking-widest uppercase transition-all duration-300 border-b-2 mr-2 cursor-pointer ${
                   selectedCategory === cat 
                     ? "border-black text-black font-bold" 
@@ -328,6 +330,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             </span>
             <button
               onClick={() => setSelectedTag(null)}
+              aria-pressed={selectedTag === null}
               className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
                 selectedTag === null
                   ? "bg-black text-[#faf9f6] border-black font-semibold shadow-sm"
@@ -340,8 +343,9 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               <button
                 key={tag}
                 onClick={() => setSelectedTag(tag)}
-                className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
-                  selectedTag === tag
+                  aria-pressed={selectedTag === tag}
+                  className={`px-3 py-1 font-mono text-[9px] uppercase tracking-widest transition-all duration-200 border rounded-none cursor-pointer ${
+                    selectedTag === tag
                     ? "bg-black text-[#faf9f6] border-black font-semibold shadow-sm"
                     : "bg-white text-[#5f5e59] border-[#e5e1d8] hover:border-[#8b8780]"
                 }`}
@@ -390,13 +394,13 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           : [selectedPhoto.imageUrl].filter(Boolean);
 
         return (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${selectedPhoto.title} details`}>
             <div className="bg-[#f7f4ed] w-full max-w-4xl p-6 md:p-8 relative border-0 rounded-none shadow-2xl">
               
               {/* Close button with high aesthetic focus styling */}
               <button 
                 onClick={() => setSelectedPhoto(null)}
-                className="absolute top-4 right-4 text-black hover:opacity-75 transition-opacity z-10 p-2 cursor-pointer"
+                className="absolute top-4 right-4 min-h-11 min-w-11 text-black hover:opacity-75 transition-opacity z-10 p-2 cursor-pointer focus:outline-none focus:ring-2 focus:ring-black"
               >
                 <span className="material-symbols-outlined text-2xl">close</span>
               </button>

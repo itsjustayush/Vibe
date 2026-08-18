@@ -14,7 +14,7 @@ export function observeWebVitals(callback: (metric: any) => void): void {
         const metric = {
           name: 'LCP',
           value: entry.startTime,
-          id: entry.url,
+          id: (entry as PerformanceEntry & { url?: string }).url,
         };
         callback(metric);
       }
@@ -150,7 +150,7 @@ export function requestIdleCallback(callback: IdleRequestCallback, options?: Idl
     return (window.requestIdleCallback as any)(callback, options);
   }
   // Fallback: use setTimeout
-  return window.setTimeout(() => callback({} as IdleDeadline), 1000) as unknown as number;
+  return globalThis.setTimeout(() => callback({} as IdleDeadline), 1000) as unknown as number;
 }
 
 /**
@@ -234,7 +234,8 @@ export const cacheManager = {
   async set(cacheName: string, request: Request | string, response: Response | string): Promise<void> {
     if (typeof caches !== 'undefined') {
       const cache = await caches.open(cacheName);
-      cache.put(request, new Response(response));
+      const cachedResponse = typeof response === "string" ? new Response(response) : response;
+      await cache.put(request, cachedResponse);
     }
   },
 
