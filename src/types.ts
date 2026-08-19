@@ -20,6 +20,7 @@ export interface Post {
   coverImage: string;
   createdAt: number;
   analyzedThemes?: string[];
+  tags?: string[];
 }
 
 export interface AdminStats {

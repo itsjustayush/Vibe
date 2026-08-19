@@ -1699,3 +1699,19 @@ img {
 .dark [class*="text-yellow-"] {
   color: var(--accent) !important;
 }
+
+
+.story-tags,
+.story-row-tags {
+  color: var(--muted-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.story-row-tags {
+  display: block;
+  margin-top: 0.7rem;
+  color: var(--accent-royal);
+}

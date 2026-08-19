@@ -46,34 +46,60 @@ export const DEFAULT_PHOTOS: Photo[] = [
 
 export const DEFAULT_POSTS: Post[] = [
   {
-    title: "The Silence of Concrete",
-    content: `Architecture is frozen music. In this series, explore the heavy silences of concrete monolithic slabs. How do strong diagonal shadows interact with physical forms? How does the light curve?
+    title: "When Light Finds the Structure",
+    content: `I used to think architectural photography was mostly about finding the right building. I was wrong. The real work begins after the building has stopped being impressive.
 
-In modern spaces, we see a distinct absence of decorative distraction. Each texture is allowed to speak for itself. We present concrete not as a substrate of commerce, but as an aesthetic statement of permanence and structural clarity.
+A wall becomes a plane. A staircase becomes a line. A window becomes a small decision about where the day is allowed to enter. Once I stop trying to photograph the whole structure, I start noticing the quieter conversation between light and material.
 
-### Core Philosophy
-By focusing strictly on geometric boundaries, we extract the core components of negative space. Visual weight shifts. A simple 1px hairline shadow becomes as powerful as a concrete pillar.
+### I begin with the shadow
 
-- **Contrast:** Highly reflective sky vs textured, light-absorbent limestone finish.
-- **Rhythm:** The deliberate, repeating pattern of structural formers.
-- **Silence:** Leaving 70% of the visual canvas completely uninterrupted.`,
-    category: "Urban Monographs Vol. 4",
-    coverImage: "https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?q=80&w=1200",
-    createdAt: 1729728000000, // 24 Oct, 2024
-    analyzedThemes: ["Brutalism", "Negative Space", "Modernist Proportions"]
+The shadow is usually the first honest thing in the frame. It tells me where the sun is, how the surface turns, and whether the geometry is actually doing any work. When I walk around a building, I am not looking for a landmark image. I am waiting for one patch of darkness to make the rest of the composition feel necessary.
+
+There is a particular pleasure in photographing concrete because it refuses to flatter itself. It holds dust, stains, seams, and the faint evidence of use. The camera does not need to beautify it. It only needs to stay patient long enough for its character to appear.
+
+### What the frame leaves out
+
+A good architectural photograph is not a survey. It is an edit. I leave out the traffic, the unfinished edges, the noise of the street, and sometimes even the most recognisable part of the building. What remains is not always a complete explanation, but it can be a complete feeling: weight, pause, heat, distance.
+
+Negative space is not empty space. It is the room the photograph gives the viewer to think. The wider that room becomes, the more carefully every remaining line has to behave.
+
+### A slower way to look
+
+I now try to make fewer photographs when I am walking through a city. I watch a surface change as the clouds move. I return to the same corner after ten minutes. I let the first obvious image pass. Often, the second or third way of seeing is the one that feels like my own.
+
+Architecture teaches me that clarity is rarely loud. It is built from proportion, restraint, and the courage to leave one thing unfilled.`,
+    category: "Field Notes / Architecture",
+    coverImage: "https://images.unsplash.com/photo-1600573472591-ee6b68d14c68?q=80&w=1400",
+    createdAt: Date.UTC(2026, 5, 18),
+    tags: ["architecture", "light", "shadow", "negative space", "visual rhythm"]
   },
   {
-    title: "The Monolith Theory",
-    content: `A narrative deep dive into structural brutality and standard geometric frameworks. The presence of physical monuments in wild landscapes changes our perception of time and space.
+    title: "The Discipline of Waiting",
+    content: `Landscape photography has taught me that looking is not the same as seeing. Looking is immediate: a mountain appears, mist rolls over a field, a tree stands alone against the morning. Seeing asks for more time.
 
-What does it mean to build a solid monument in a field of mist? To humanize the wilderness by throwing a concrete block into its midst. A meditation on standard angles, raw weight, and visual presence.
+The photograph I want is usually hidden inside the first impression. I have to wait for the wind to settle, for the light to lose its drama, or for the scene to become ordinary again. That is often when its shape becomes clear.
 
-### Natural Intersections
-When natural asymmetry meets human-made symmetry, a dialogue begins. A solitary tree responds to the raw gravity of a solid concrete prism. Time slows. The monolith becomes a solar indicator, casting slow, heavy dials on the grass.`,
-    category: "Theory / Narrative Series",
-    coverImage: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1200",
-    createdAt: 1729296000000, // 19 Oct, 2024
-    analyzedThemes: ["Natural Entropy", "Symmetry", "Philosophical Landscapes"]
+### The landscape does not perform
+
+I used to arrive with a picture already in mind. A lone tree, a bright horizon, a perfect layer of fog. When the landscape refused to give me that picture, I thought the morning had failed. Slowly, I learned that the failure was mine. I had brought a conclusion instead of a question.
+
+A field does not need to look extraordinary to hold attention. A soft change in colour, a path disappearing behind grass, or the distance between two trees can be enough. The quieter the scene, the more carefully I have to listen to its proportions.
+
+### Mist as a kind of editing
+
+Mist removes information without making the image feel incomplete. It pushes the background away, softens the edge of a hill, and asks the eye to accept uncertainty. I like that. A photograph does not always need to explain where it was taken. Sometimes it only needs to preserve what it felt like to stand there before the day became busy.
+
+In those moments, the camera becomes less like a machine for collecting proof and more like a small instrument for remembering attention.
+
+### Taking the long way home
+
+The best part of a landscape walk is often the return. The light has changed, the subject has lost its first impression, and I notice the things I ignored on the way in: a fence leaning into the road, a small bird crossing a pale sky, the colour of the soil after rain.
+
+I am trying to photograph with that second look. Not the landscape as spectacle, but the landscape as company. The frame becomes a way of saying: I was here, I slowed down, and for a few minutes I noticed what was already enough.`,
+    category: "Field Notes / Landscape",
+    coverImage: "https://images.unsplash.com/photo-1502082553048-f009c37129b9?q=80&w=1400",
+    createdAt: Date.UTC(2026, 4, 2),
+    tags: ["landscape", "mist", "patience", "solitude", "observation"]
   }
 ];
 

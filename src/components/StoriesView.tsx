@@ -68,7 +68,14 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
               <Markdown>{selectedPost.content}</Markdown>
             </div>
 
-
+            {selectedPost.tags && selectedPost.tags.length > 0 && (
+              <div className="story-tags mt-12 pt-6 border-t border-[var(--border)]">
+                <p className="eyebrow">Filed under</p>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  {selectedPost.tags.map((tag) => <span key={tag} className="tag-chip">#{tag}</span>)}
+                </div>
+              </div>
+            )}
 
             <div className="mt-14 pt-8 border-t border-[var(--border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
               <div>
@@ -122,6 +129,11 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
                     <h2 className="story-row-title">{post.title}</h2>
                     <p className="story-row-excerpt">{excerpt}</p>
                     <span className="story-read-more">Read story <ArrowRight size={15} aria-hidden="true" /></span>
+                    {post.tags && post.tags.length > 0 && (
+                      <span className="story-row-tags" aria-label={`Tags: ${post.tags.join(", ")}`}>
+                        {post.tags.slice(0, 3).map((tag) => `#${tag}`).join("  ")}
+                      </span>
+                    )}
                   </div>
                 </button>
               </Reveal>
