@@ -54,7 +54,7 @@ export default function AboutView() {
         <section className="about-manifesto mt-16 md:mt-24">
           <Sparkles size={18} aria-hidden="true" className="text-[var(--accent)]" />
           <p className="eyebrow mt-4">Meditation of clarity</p>
-          <p className="about-manifesto-text">चित्तवृत्तिनिरोधः</p>
+          <p className="about-manifesto-text devanagari-display" lang="sa">चित्तवृत्तिनिरोधः</p>
           <p className="body-copy max-w-xl mx-auto mt-3">Yoga is the quietude of fluctuating patterns — a reminder to let the frame become still before deciding what it means.</p>
         </section>
       </Reveal>

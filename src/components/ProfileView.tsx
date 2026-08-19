@@ -5,6 +5,10 @@ import AsciiHoverImage from "./AsciiHoverImage";
 import BlurText from "./BlurText";
 import Reveal from "./Reveal";
 import RotatingText from "./RotatingText";
+import TextGenerateEffect from "./TextGenerateEffect";
+import { HeroHighlight, Highlight } from "./HeroHighlight";
+import TooltipCard from "./TooltipCard";
+import WobbleCard from "./WobbleCard";
 import ayushPortrait from "../assets/images/ayush-portrait.webp";
 
 interface GalleryCardProps {
@@ -70,14 +74,7 @@ function GalleryCard({ photo, onClick, isNaturalColor = true }: GalleryCardProps
         </div>
       </div>
 
-      {photo.analyzedDescription && (
-        <div className="mt-4 pt-3 border-t border-[#e5e1d8]/60 bg-neutral-50 p-2.5 flex items-start gap-2.5">
-          <span className="material-symbols-outlined text-[15px] text-black/40 mt-0.5">insights</span>
-          <p className="font-sans italic text-[10px] text-[#5f5e59] leading-relaxed line-clamp-1">
-            Gemini Curation: {photo.analyzedDescription}
-          </p>
-        </div>
-      )}
+
     </div>
   );
 }
@@ -179,24 +176,26 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
               <span className="text-[var(--accent)]">/</span>
               <RotatingText texts={["ENGINEERING MIND", "VISUAL STORYTELLER", "SYSTEMS THINKER"]} />
             </div>
-            <h1 className="font-serif text-4xl md:text-5xl text-[var(--foreground)] tracking-[-0.035em] leading-[0.98] font-medium">
-              <BlurText text="Ayush Bhattacharya is a seeker of elegant solutions." delay={70} animateBy="words" className="max-w-2xl" />
-            </h1>
-            <p className="font-sans text-[13px] leading-relaxed text-[#5f5e59] mt-4 max-w-xl">
-              Currently a Class 12 student and JEE aspirant, balancing the rigors of engineering preparation with a profound curiosity for computer science and creative visual expression.
+            <HeroHighlight>
+              <h1 className="font-serif text-4xl md:text-5xl text-[var(--foreground)] tracking-[-0.035em] leading-[0.98] font-medium">
+                <BlurText text="Ayush Bhattacharya is a seeker of elegant solutions." delay={70} animateBy="words" className="max-w-2xl" />
+              </h1>
+            </HeroHighlight>
+            <p className="font-sans text-[13px] leading-relaxed text-[var(--muted-foreground)] mt-4 max-w-xl">
+              Currently a Class 12 student and JEE aspirant, balancing the rigors of engineering preparation with a profound curiosity for <Highlight>computer science</Highlight> and creative visual expression.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4 border-t border-[#e5e1d8]">
             <div className="space-y-3">
               <h5 className="font-serif text-[15px] font-bold tracking-tight text-black">THE FOCUS</h5>
-              <p className="font-sans text-[12px] leading-loose text-[#5f5e59]">
-                My approach to engineering is rooted in the fundamentals. I believe that true problem-solving lies at the intersection of mathematical precision and creative lateral thinking. From decomposing complex JEE physics problems to architecting clean UI flows, the objective remains the same: clarity.
+              <p className="font-sans text-[12px] leading-loose text-[var(--muted-foreground)]">
+                My approach to engineering is rooted in the <TooltipCard content="The essential principles beneath every strong system: clarity, structure, and repeatable practice."><span className="editorial-term">fundamentals</span></TooltipCard>. I believe that true problem-solving lies at the intersection of mathematical precision and creative lateral thinking. From decomposing complex JEE physics problems to architecting clean UI flows, the objective remains the same: <TooltipCard content="A clear result is usually the consequence of a clear question."><span className="editorial-term">clarity</span></TooltipCard>.
               </p>
             </div>
             <div className="space-y-3">
               <h5 className="font-serif text-[15px] font-bold tracking-tight text-black">PHILOSOPHY</h5>
-              <p className="font-sans text-[12px] leading-loose text-[#5f5e59]">
+              <p className="font-sans text-[12px] leading-loose text-[var(--muted-foreground)]">
                 A museum-grade mind in a high-speed world. I value the slow process of mastery—building deep foundations in computer science while navigating the competitive landscape of engineering entrance examinations.
               </p>
             </div>
@@ -271,12 +270,12 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
             </div>
           </div>
 
-          <div className="p-4 bg-black/5 border border-black/10 mt-6 md:mt-0">
-            <p className="font-serif italic text-xs leading-relaxed text-[#5f5e59]">
+          <WobbleCard containerClassName="mt-6 md:mt-0" className="p-4">
+            <p className="font-serif italic text-xs leading-relaxed text-[var(--muted-foreground)]">
               There is a geometry and symmetry in the world. Photography is a way of finding that order, a way of looking at the chaos and finding a moment of perfect balance.
             </p>
-            <span className="font-mono text-[9px] tracking-widest text-black/40 block mt-2">— TRENT PARKE</span>
-          </div>
+            <span className="font-mono text-[9px] tracking-widest text-[var(--muted-foreground)] block mt-2">— TRENT PARKE</span>
+          </WobbleCard>
         </div>
       </section>
       </Reveal>
@@ -288,8 +287,8 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
           <div className="max-w-xl">
             <h4 className="font-mono text-[10px] tracking-[0.3em] text-[#5f5e59] uppercase mb-3">CURATED PORTFOLIO</h4>
             <h2 className="font-serif text-3xl font-medium tracking-tight text-black">Capturing the silence between moments</h2>
-            <p className="font-sans text-[13px] text-[#5f5e59] mt-3 leading-relaxed">
-              Beyond the equations, I find balance through the lens. Visual storytelling is my meditative retreat from the binary world.
+            <p className="font-sans text-[13px] text-[var(--muted-foreground)] mt-3 leading-relaxed">
+              <TextGenerateEffect words="Beyond the equations, I find balance through the lens. Visual storytelling is my meditative retreat from the binary world." />
             </p>
           </div>
           <a
@@ -460,7 +459,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                     </div>
  
                     <div className="py-4 border-y border-[#e5e1d8]">
-                      <h5 className="font-mono text-[10px] tracking-widest text-black uppercase mb-2 font-semibold">CURATOR DIRECTIVE</h5>
+                          <h5 className="font-mono text-[10px] tracking-widest text-[var(--foreground)] uppercase mb-2 font-semibold">PHOTO NOTE</h5>
                       <p className="font-sans text-[12px] leading-relaxed text-[#5f5e59]">{selectedPhoto.caption}</p>
 
                       {selectedPhoto.tags && selectedPhoto.tags.length > 0 && (
@@ -477,17 +476,7 @@ export default function ProfileView({ photos, onOpenGate }: ProfileViewProps) {
                       )}
                     </div>
  
-                    {selectedPhoto.analyzedDescription && (
-                      <div className="p-3 bg-black/5 border border-black/10">
-                        <div className="flex items-center gap-2 mb-2 text-[#1a1a1a]">
-                          <span className="material-symbols-outlined text-lg">insights</span>
-                          <span className="font-mono text-[10px] tracking-widest uppercase font-semibold">GEMINI PRO ANALYSIS</span>
-                        </div>
-                        <p className="font-sans text-[11px] leading-relaxed text-[#5f5e59]">
-                          {selectedPhoto.analyzedDescription}
-                        </p>
-                      </div>
-                    )}
+
                   </div>
  
                   <div className="pt-6">

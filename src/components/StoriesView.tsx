@@ -68,20 +68,7 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
               <Markdown>{selectedPost.content}</Markdown>
             </div>
 
-            {selectedPost.analyzedThemes && selectedPost.analyzedThemes.length > 0 && (
-              <aside className="story-theme-panel mt-14">
-                <div className="flex items-start gap-3">
-                  <Sparkles size={18} aria-hidden="true" className="mt-0.5 text-[var(--accent)]" />
-                  <div>
-                    <p className="eyebrow">Curation layer</p>
-                    <h2 className="mt-1 font-serif text-2xl text-[var(--foreground)]">Themes found in this story</h2>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-5">
-                  {selectedPost.analyzedThemes.map((tag) => <span key={tag} className="tag-chip tag-chip--active">#{tag}</span>)}
-                </div>
-              </aside>
-            )}
+
 
             <div className="mt-14 pt-8 border-t border-[var(--border)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-5">
               <div>
@@ -106,7 +93,7 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
             <div className="eyebrow-row"><span>The chronicles of vibe</span><span className="eyebrow-dot" aria-hidden="true" /><span>{posts.length} entries</span></div>
             <h1 className="display-title mt-4"><BlurText text="Editorial journal" delay={75} animateBy="words" /></h1>
           </div>
-          <p className="page-hero-copy">Detailed thoughts, structural mechanics, design reviews, and architectural stories written as a slow curation diary accompanying high focal plane imagery.</p>
+          <p className="page-hero-copy">Detailed thoughts, structural mechanics, design reviews, and architectural stories written as a visual field journal accompanying high focal plane imagery.</p>
         </header>
       </Reveal>
 
@@ -115,7 +102,7 @@ export default function StoriesView({ posts, onNavigate }: StoriesViewProps) {
           <div className="empty-state">
             <BookOpen size={28} aria-hidden="true" />
             <h2>No narratives published yet</h2>
-            <p>The magazine is raw material pending curation.</p>
+            <p>The journal is waiting for its first field note.</p>
           </div>
         </Reveal>
       ) : (

@@ -199,7 +199,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
   };
 
   // ─────────────────────────────────────────────────────────────────────────
-  // GEMINI ANALYZE
+  // IMAGE ASSIST
   // ─────────────────────────────────────────────────────────────────────────
   const handleAnalyzeImage = async (imageData: string, mime: string, onResult: (text: string) => void, setLoading: (b: boolean) => void) => {
     if (!imageData) { toast("error", "Load an image first."); return; }
@@ -213,7 +213,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       onResult(data.analysis);
-      toast("success", "Gemini analyzed the image.");
+      toast("success", "Image caption created.");
     } catch (err: any) {
       toast("error", "Analysis failed: " + err.message);
     } finally {
@@ -443,7 +443,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-      setPostContent(prev => prev + `\n\n---\n**Gemini Themes Audit:**\n${data.analysis}`);
+      setPostContent(prev => prev + `\n\n---\n**Theme Audit:**\n${data.analysis}`);
       toast("success", "Themes analyzed and appended.");
     } catch (err: any) {
       toast("error", "Analysis failed: " + err.message);
@@ -695,7 +695,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                 {[
                   { label: "Upload Photos", desc: "Add new images to gallery", icon: "add_a_photo", tab: "photos" as Tab },
                   { label: "Write a Blog", desc: "Create a new editorial post", icon: "edit_note", tab: "blogs" as Tab },
-                  { label: "Video Analysis", desc: "Analyze a video with Gemini", icon: "movie_filter", tab: "video" as Tab },
+                  { label: "Video Analysis", desc: "Analyze a video", icon: "movie_filter", tab: "video" as Tab },
                 ].map(a => (
                   <button
                     key={a.label}
@@ -857,7 +857,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                   </div>
                 )}
 
-                {/* Gemini analyze */}
+                {/* Image assist */}
                 {photoUrlsList.length > 0 && (
                   <button
                     type="button"
@@ -866,7 +866,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                     className="flex items-center gap-2 px-4 py-2 border border-[#e5e1d8] hover:border-amber-400 bg-white font-mono text-[9px] uppercase tracking-widest text-[#5f5e59] hover:text-amber-700 transition-all cursor-pointer disabled:opacity-50"
                   >
                     {imageAnalyzing ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> : <span className="material-symbols-outlined text-sm">auto_awesome</span>}
-                    {imageAnalyzing ? "Analyzing with Gemini..." : "Auto-generate caption with Gemini AI"}
+                    {imageAnalyzing ? "Analyzing..." : "Suggest a caption"}
                   </button>
                 )}
 
@@ -894,7 +894,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                   </div>
                   <div className="md:col-span-2 space-y-1">
                     <label className="label-sm">Caption / Curator Note</label>
-                    <textarea rows={3} value={photoCaption} onChange={e => setPhotoCaption(e.target.value)} placeholder="Write a description or use Gemini AI above to auto-generate..." className="field resize-none" />
+                    <textarea rows={3} value={photoCaption} onChange={e => setPhotoCaption(e.target.value)} placeholder="Write a description or use the assistant above to suggest one..." className="field resize-none" />
                   </div>
                   <div className="md:col-span-2">
                     <button type="submit" disabled={publishing || compressing} className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2">
@@ -1182,7 +1182,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                         className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e5e1d8] hover:border-amber-400 font-mono text-[8px] uppercase tracking-wider text-[#5f5e59] hover:text-amber-700 transition-all cursor-pointer disabled:opacity-50"
                       >
                         {storyAnalyzing ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> : <span className="material-symbols-outlined text-sm">auto_awesome</span>}
-                        {storyAnalyzing ? "Analyzing..." : "Gemini Theme Audit"}
+                        {storyAnalyzing ? "Analyzing..." : "Theme Audit"}
                       </button>
                     </div>
                     <textarea
@@ -1214,7 +1214,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
             <div className="space-y-6 max-w-4xl">
               <div>
                 <h1 className="font-serif text-2xl font-bold text-black">Video Analysis</h1>
-                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-1">Museum-grade cinematic critique powered by Gemini AI</p>
+                <p className="font-mono text-[9px] text-[#8b8780] uppercase tracking-wider mt-1">Museum-grade cinematic critique for your archive</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -1237,14 +1237,14 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                     disabled={videoAnalyzing}
                     className="w-full py-3.5 bg-black text-white font-mono text-[10px] tracking-widest uppercase hover:opacity-90 disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
                   >
-                    {videoAnalyzing ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Analyzing...</> : <><span className="material-symbols-outlined text-sm">movie_filter</span> Analyze with Gemini</>}
+                    {videoAnalyzing ? <><span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> Analyzing...</> : <><span className="material-symbols-outlined text-sm">movie_filter</span> Analyze video</>}
                   </button>
                 </div>
 
                 <div className="border border-[#e5e1d8] bg-white p-5 min-h-64 flex flex-col">
                   <div className="flex items-center gap-2 pb-3 border-b border-[#e5e1d8]">
                     <span className="material-symbols-outlined text-sm text-[#8b8780]">analytics</span>
-                    <h3 className="font-mono text-[9px] uppercase tracking-widest text-[#5f5e59]">Gemini Analysis Output</h3>
+                    <h3 className="font-mono text-[9px] uppercase tracking-widest text-[#5f5e59]">Analysis output</h3>
                   </div>
                   <div className="flex-1 mt-4 overflow-y-auto">
                     {videoAnalyzing ? (
@@ -1410,7 +1410,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                 )}
               </div>
 
-              {/* Gemini analyze for edit */}
+              {/* Image assist for edit */}
               {editUrlsList.length > 0 && (
                 <button
                   type="button"
@@ -1419,7 +1419,7 @@ export default function AdminConsole({ photos, posts, insights, onRefreshData, o
                   className="flex items-center gap-1.5 px-3 py-1.5 border border-[#e5e1d8] hover:border-amber-400 font-mono text-[8px] uppercase tracking-wider text-[#5f5e59] hover:text-amber-700 transition-all cursor-pointer disabled:opacity-50"
                 >
                   {editAnalyzing ? <span className="material-symbols-outlined text-sm animate-spin">progress_activity</span> : <span className="material-symbols-outlined text-sm">auto_awesome</span>}
-                  {editAnalyzing ? "Analyzing..." : "Re-analyze with Gemini"}
+                  {editAnalyzing ? "Analyzing..." : "Re-analyze"}
                 </button>
               )}
 

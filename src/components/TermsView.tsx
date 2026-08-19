@@ -47,7 +47,7 @@ export default function TermsView({ onNavigate }: TermsViewProps) {
         <section className="terms-sutra mt-10 md:mt-16">
           <ShieldCheck size={22} aria-hidden="true" className="text-[var(--accent)]" />
           <p className="eyebrow mt-4">Sanskrit law of intellectual sanctity</p>
-          <p className="terms-sutra-quote">“सत्यमुद्भावयेद् रूपं मा हरतु कदाचन”</p>
+          <p className="terms-sutra-quote devanagari-display" lang="sa">“सत्यमुद्भावयेद् रूपं मा हरतु कदाचन”</p>
           <p className="body-copy mx-auto mt-3">Truth establishes pure form; let no one steal its essence.</p>
         </section>
       </Reveal>

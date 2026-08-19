@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useTheme } from "../contexts/ThemeContext";
 import AyuVibeeLogo from "./AyuVibeeLogo";
 import ThemeToggle from "./ThemeToggle";
+import ResizableNavbar from "./ResizableNavbar";
+import LinkPreview from "./LinkPreview";
 
 interface NavigationProps {
   currentView: string;
@@ -29,7 +31,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
   };
 
   return (
-    <>
+    <ResizableNavbar>
       {/* ── Top Navbar ─────────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-40 w-full border-b border-[var(--border)] bg-[color-mix(in_srgb,var(--background)_88%,transparent)] backdrop-blur-xl px-4 sm:px-6 lg:px-10 py-3.5 flex items-center justify-between" role="navigation" aria-label="Main navigation">
 
@@ -145,15 +147,13 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
               { label: "X / Twitter", href: "https://x.com/ayushbhattacharya" },
               { label: "Email", href: "mailto:ayush@ayu.vibee" },
             ].map(s => (
-              <a
+              <LinkPreview
                 key={s.label}
-                href={s.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-mono text-[9px] uppercase tracking-widest text-[#8b8780] hover:text-black transition-colors border-b border-[#e5e1d8] pb-0.5"
+                url={s.href}
+                className="font-mono text-[9px] uppercase tracking-widest text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors border-b border-[var(--border)] pb-0.5"
               >
                 {s.label}
-              </a>
+              </LinkPreview>
             ))}
           </div>
           <p className="font-mono text-[8px] text-[#8b8780] mt-4 uppercase tracking-widest">
@@ -161,7 +161,7 @@ export default function Navigation({ currentView, onNavigate, onOpenGate, isAdmi
           </p>
         </div>
       )}
-    </>
+    </ResizableNavbar>
   );
 }
 
