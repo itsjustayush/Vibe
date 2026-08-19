@@ -1,6 +1,10 @@
 import { Compass, GraduationCap, Orbit, Sparkles } from "lucide-react";
 import BlurText from "./BlurText";
 import Reveal from "./Reveal";
+import AsciiHoverImage from "./AsciiHoverImage";
+import TooltipCard from "./TooltipCard";
+import LinkPreview from "./LinkPreview";
+import ayushPortrait from "../assets/images/ayush-portrait.webp";
 
 export default function AboutView() {
   return (
@@ -14,6 +18,38 @@ export default function AboutView() {
           <p className="page-hero-copy">A closer look at the person behind the frames: a student, systems thinker, and photographer learning to hold precision and wonder in the same composition.</p>
         </header>
       </Reveal>
+
+      <section className="about-profile-row mt-12 md:mt-20">
+        <Reveal className="about-profile-portrait">
+          <div className="about-portrait-frame">
+            <AsciiHoverImage
+              src={ayushPortrait}
+              alt="Ayush Bhattacharya in a misty rural landscape near Kolkata"
+              className="block aspect-[4/5] w-full object-cover"
+              decoding="async"
+              label="About portrait ASCII reveal"
+            />
+            <div className="about-portrait-meta">
+              <div>
+                <p className="eyebrow">Portrait study / 001</p>
+                <p className="about-portrait-name">
+                  <TooltipCard content="Ayush Bhattacharya — student, systems thinker, and photographer building a practice around clarity and attention.">
+                    <span className="editorial-term">Ayush Bhattacharya</span>
+                  </TooltipCard>
+                </p>
+              </div>
+              <LinkPreview url="https://instagram.com/ayu.vibee" className="about-portrait-link">View visual field <span aria-hidden="true">↗</span></LinkPreview>
+            </div>
+          </div>
+        </Reveal>
+
+        <Reveal className="about-profile-note" delay={100}>
+          <p className="eyebrow">A portrait in progress</p>
+          <h2 className="section-title">The person behind the frames.</h2>
+          <p className="body-copy mt-5">The photograph is not a formal biography. It is a quiet marker of where the work begins: with curiosity, a camera, and the willingness to stay with a question longer than its first answer.</p>
+          <div className="about-profile-index mt-8"><span>AYU.VIBEE / ABOUT</span><span>KOLKATA / INDIA</span></div>
+        </Reveal>
+      </section>
 
       <section className="about-grid mt-12 md:mt-20">
         <Reveal className="about-lead">
